@@ -153,6 +153,17 @@ function OneStorageBank:CreateItemButton(index)
     if btn.flashAnim and btn.flashAnim:IsPlaying() then btn.flashAnim:Stop() end
     if btn.newitemglowAnim and btn.newitemglowAnim:IsPlaying() then btn.newitemglowAnim:Stop() end
     
+    -- Ensure GetBagID method is present from Blizzard's template mixin
+    if not btn.GetBagID then
+        if ContainerFrameItemButtonMixin and ContainerFrameItemButtonMixin.GetBagID then
+            btn.GetBagID = ContainerFrameItemButtonMixin.GetBagID
+        else
+            btn.GetBagID = function(s)
+                return s.bag or (s:GetParent() and s:GetParent():GetID())
+            end
+        end
+    end
+    
     -- Slot Background Texture (Empty Slot art)
     local slotBg = btn:CreateTexture(nil, "BACKGROUND")
     slotBg:SetAllPoints(btn)
@@ -441,7 +452,15 @@ function OneStorageBank:RefreshLayout()
             btn.slot = slotData.slotID
             btn.bagID = nil
             btn.slotID = nil
-            btn.GetBagID = nil
+            if not btn.GetBagID then
+                if ContainerFrameItemButtonMixin and ContainerFrameItemButtonMixin.GetBagID then
+                    btn.GetBagID = ContainerFrameItemButtonMixin.GetBagID
+                else
+                    btn.GetBagID = function(s)
+                        return s.bag or (s:GetParent() and s:GetParent():GetID())
+                    end
+                end
+            end
             btn:Show()
             
             self:UpdateButton(btn)
@@ -451,7 +470,6 @@ function OneStorageBank:RefreshLayout()
                 btn.slot = nil
                 btn.bagID = nil
                 btn.slotID = nil
-                btn.GetBagID = nil
                 btn:Hide()
             end
         end
