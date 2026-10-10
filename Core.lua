@@ -67,30 +67,16 @@ end
 -- Item Slot Button Creation & Pooling
 -------------------------------------------------------------------------------
 
-local function OnItemClick(self, button)
-    local bagID = self.bagID
-    local slotID = self.slotID
-    if not bagID or not slotID then return end
-    
-    if button == "LeftButton" then
-        if IsModifiedClick("CHATLINK") then
-            local link = ContainerHelper:GetItemLink(bagID, slotID)
-            if link and ChatEdit_InsertLink then
-                ChatEdit_InsertLink(link)
-                return
-            end
-        end
-        if IsModifiedClick("SPLITSTACK") then
-            local info = ContainerHelper:GetItemInfo(bagID, slotID)
-            if info and info.count > 1 then
-                StackSplitFrame:OpenStackSplitFrame(info.count, self, "BOTTOMLEFT", "TOPLEFT")
-                return
-            end
-        end
-        ContainerHelper:PickupItem(bagID, slotID)
-    elseif button == "RightButton" then
-        ContainerHelper:UseItem(bagID, slotID)
+function OneStorageBank:GetBagParentFrame(bagID)
+    self.bagFrames = self.bagFrames or {}
+    if not self.bagFrames[bagID] then
+        local f = CreateFrame("Frame", "OneStorageBank_Bag" .. tostring(bagID):gsub("-", "neg"), self.frame.ContentArea)
+        f:SetID(bagID)
+        f:SetAllPoints(self.frame.ContentArea)
+        f:Show()
+        self.bagFrames[bagID] = f
     end
+    return self.bagFrames[bagID]
 end
 
 local function OnItemEnter(self)
@@ -135,10 +121,23 @@ end
 
 function OneStorageBank:CreateItemButton(index)
     local name = "OneStorageBankItem" .. index
-    local btn = CreateFrame("Button", name, self.frame.ContentArea)
+    local parent = self.frame.ContentArea
+    local ok, btn = pcall(CreateFrame, "ItemButton", name, parent, "ContainerFrameItemButtonTemplate")
+    if not ok or not btn then
+        btn = CreateFrame("Button", name, parent, "ContainerFrameItemButtonTemplate")
+    end
     btn:SetSize(37, 37)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     btn:RegisterForDrag("LeftButton")
+    
+    -- Disable Blizzard's automatic template event updates; OneStorageBank manages updates
+    btn:SetScript("OnEvent", nil)
+    btn:SetScript("OnShow", nil)
+    
+    -- Ensure OnClick uses Blizzard's native ContainerFrameItemButton_OnClick
+    if not btn:GetScript("OnClick") and ContainerFrameItemButton_OnClick then
+        btn:SetScript("OnClick", ContainerFrameItemButton_OnClick)
+    end
     
     -- Slot Background Texture (Empty Slot art)
     local slotBg = btn:CreateTexture(nil, "BACKGROUND")
@@ -148,14 +147,20 @@ function OneStorageBank:CreateItemButton(index)
     btn.SlotBg = slotBg
     
     -- Item Icon
-    local icon = btn:CreateTexture(nil, "BORDER")
-    icon:SetAllPoints(btn)
+    local icon = _G[name .. "IconTexture"] or btn.icon
+    if not icon then
+        icon = btn:CreateTexture(nil, "BORDER")
+        icon:SetAllPoints(btn)
+    end
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     btn.Icon = icon
     
     -- Item Count Label
-    local count = btn:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
-    count:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -2, 2)
+    local count = _G[name .. "Count"] or btn.Count
+    if not count then
+        count = btn:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+        count:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -2, 2)
+    end
     btn.Count = count
     
     -- Quality Border Ring
@@ -206,24 +211,14 @@ function OneStorageBank:CreateItemButton(index)
     btn.BagHighlightBorder = bagHighlightBorder
     
     -- Cooldown Spiral
-    local okCd, cd = pcall(CreateFrame, "Cooldown", name .. "Cooldown", btn, "CooldownFrameTemplate")
-    if not okCd or not cd then
-        cd = CreateFrame("Cooldown", name .. "Cooldown", btn)
+    local cd = _G[name .. "Cooldown"] or btn.Cooldown
+    if not cd then
+        local okCd, newCd = pcall(CreateFrame, "Cooldown", name .. "Cooldown", btn, "CooldownFrameTemplate")
+        cd = (okCd and newCd) or CreateFrame("Cooldown", name .. "Cooldown", btn)
     end
     cd:SetAllPoints(btn)
     btn.Cooldown = cd
     
-    btn:SetScript("OnClick", OnItemClick)
-    btn:SetScript("OnDragStart", function(self)
-        if self.bagID and self.slotID then
-            ContainerHelper:PickupItem(self.bagID, self.slotID)
-        end
-    end)
-    btn:SetScript("OnReceiveDrag", function(self)
-        if self.bagID and self.slotID then
-            ContainerHelper:PickupItem(self.bagID, self.slotID)
-        end
-    end)
     btn:SetScript("OnEnter", OnItemEnter)
     btn:SetScript("OnLeave", OnItemLeave)
     
@@ -419,16 +414,26 @@ function OneStorageBank:RefreshLayout()
             end
             
             local slotData = slotList[i]
+            local bagParent = self:GetBagParentFrame(slotData.bagID)
+            if btn:GetParent() ~= bagParent then
+                btn:SetParent(bagParent)
+            end
             btn:ClearAllPoints()
             btn:SetPoint("TOPLEFT", self.frame.ContentArea, "TOPLEFT", slotData.x, slotData.y)
             
+            btn:SetID(slotData.slotID)
             btn.bagID = slotData.bagID
             btn.slotID = slotData.slotID
+            btn.GetBagID = function(s) return s.bagID end
             btn:Show()
             
             self:UpdateButton(btn)
         else
-            if btn then btn:Hide() end
+            if btn then
+                btn.bagID = nil
+                btn.slotID = nil
+                btn:Hide()
+            end
         end
     end
     
