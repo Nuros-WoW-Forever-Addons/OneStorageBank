@@ -25,6 +25,18 @@ local defaultDB = {
     showMainBank = false,
 }
 
+function OneStorageBank:GetOption(key)
+    if _G.OneStorageBankDB and _G.OneStorageBankDB[key] ~= nil then
+        return _G.OneStorageBankDB[key]
+    end
+    return defaultDB[key]
+end
+
+function OneStorageBank:SetOption(key, val)
+    _G.OneStorageBankDB = _G.OneStorageBankDB or {}
+    _G.OneStorageBankDB[key] = val
+end
+
 -------------------------------------------------------------------------------
 -- Window Title & Capacity Badges
 -------------------------------------------------------------------------------
@@ -313,8 +325,8 @@ end
 function OneStorageBank:RefreshLayout()
     if not self.frame or not self.frame.ContentArea then return end
     
-    local cols = (OneStorageBankDB and OneStorageBankDB.columns) or defaultDB.columns
-    local separateBags = (OneStorageBankDB and OneStorageBankDB.separateBags ~= nil) and OneStorageBankDB.separateBags or defaultDB.separateBags
+    local cols = self:GetOption("columns")
+    local separateBags = self:GetOption("separateBags")
     local btnSize = 37
     local spacing = 4
     local bagGap = 8
@@ -1223,10 +1235,9 @@ function OneStorageBank:CreateOptionsFrame()
         "Columns",
         6,
         18,
-        function() return (OneStorageBankDB and OneStorageBankDB.columns) or defaultDB.columns end,
+        function() return OneStorageBank:GetOption("columns") end,
         function(val)
-            OneStorageBankDB = OneStorageBankDB or {}
-            OneStorageBankDB.columns = val
+            OneStorageBank:SetOption("columns", val)
             OneStorageBank:RefreshLayout()
         end
     )
@@ -1242,11 +1253,10 @@ function OneStorageBank:CreateOptionsFrame()
         "Separate Bag Rows",
         "Group each bank bag into its own row(s) instead of one continuous merged grid.",
         function()
-            return (OneStorageBankDB and OneStorageBankDB.separateBags ~= nil) and OneStorageBankDB.separateBags or defaultDB.separateBags
+            return OneStorageBank:GetOption("separateBags")
         end,
         function(val)
-            OneStorageBankDB = OneStorageBankDB or {}
-            OneStorageBankDB.separateBags = val
+            OneStorageBank:SetOption("separateBags", val)
             OneStorageBank:RefreshLayout()
         end
     )
@@ -1379,17 +1389,16 @@ SlashCmdList["ONESTORAGEBANK"] = function(msg)
     elseif cmd == "options" or cmd == "opt" or cmd == "config" then
         OneStorageBank:ToggleOptions()
     elseif cmd == "separate" or cmd == "group" or cmd == "mode" or cmd == "rows" then
-        _G.OneStorageBankDB = _G.OneStorageBankDB or {}
-        local current = (_G.OneStorageBankDB.separateBags ~= nil) and _G.OneStorageBankDB.separateBags or defaultDB.separateBags
-        _G.OneStorageBankDB.separateBags = not current
+        local current = OneStorageBank:GetOption("separateBags")
+        OneStorageBank:SetOption("separateBags", not current)
         if OneStorageBank.frame and OneStorageBank.frame:IsShown() then
             OneStorageBank:RefreshLayout()
         end
-        local modeStr = _G.OneStorageBankDB.separateBags and "|cff00ff00Separated bag rows|r" or "|cffffcc00Merged continuous grid|r"
+        local modeStr = OneStorageBank:GetOption("separateBags") and "|cff00ff00Separated bag rows|r" or "|cffffcc00Merged continuous grid|r"
         print("|cff00ccff[OneStorageBank]|r Bank layout mode: " .. modeStr)
     elseif cmd == "cols" and tonumber(arg) then
         local c = math.max(6, math.min(18, tonumber(arg)))
-        if OneStorageBankDB then OneStorageBankDB.columns = c end
+        OneStorageBank:SetOption("columns", c)
         if OneStorageBank.frame and OneStorageBank.frame:IsShown() then
             OneStorageBank:RefreshLayout()
         end
