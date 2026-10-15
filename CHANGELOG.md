@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.3] - 2026-10-14
+### Fixed
+- **Banker NPC Interaction**: Resolved issue where interacting with a banker NPC did nothing. Integrated modern `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `HIDE` handlers for `Banker`, `CharacterBanker`, and `AccountBanker`, hooked `BankFrame_Open`, and safely suppressed native `BankFrame` offscreen with zero alpha and mouse disabled without prematurely terminating the session.
+- **Camelot `C_Bank` Purchase Engine**: Wired bank tab/slot purchasing to modern `C_Bank.PurchaseBankTab`, `C_Bank.FetchNextPurchasableBankTabData`, and native `CONFIRM_BUY_BANK_TAB` popup dialog (with Classic `GetNumBankSlots` / `PurchaseSlot` fallback).
+- **Dynamic Bank Bag Bar Synchronization**: Registered `BANK_TABS_CHANGED`, `BANK_BAG_SLOT_FLAGS_UPDATED`, and `PLAYER_MONEY` to automatically re-evaluate purchased bank slots, capacities, and costs in real time.
+
+---
+
 ## [0.0.2] - 2026-10-14
 ### Fixed
 - **Bank Bag Slot Purchasing**: Fixed bank slot purchase button doing nothing by implementing the confirmation dialog (`ONE_STORAGE_BUY_BANK_SLOT`), passing accurate slot costs, and wiring both the "Buy Slot" button and unpurchased bag slot icons directly to the purchase workflow.

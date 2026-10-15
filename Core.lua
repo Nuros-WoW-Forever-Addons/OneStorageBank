@@ -664,18 +664,21 @@ end
 -- Collapsible Bank Bag Bar (Equipped Bank Bags & Purchase Slot)
 -------------------------------------------------------------------------------
 
-if StaticPopupDialogs then
+if StaticPopupDialogs and not StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] then
     StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] = {
         text = CONFIRM_BUY_BANK_SLOT or "Do you want to purchase a bank slot for:",
         button1 = YES or "Yes",
         button2 = NO or "No",
-        OnAccept = function(self)
-            if PurchaseSlot then
+        OnAccept = function(self, data)
+            local bankType = (data and data.bankType) or (Enum and Enum.BankType and Enum.BankType.Character) or 0
+            if C_Bank and C_Bank.PurchaseBankTab then
+                C_Bank.PurchaseBankTab(bankType)
+            elseif PurchaseSlot then
                 PurchaseSlot()
             end
         end,
-        OnShow = function(self)
-            local cost = self.data or (_G.BankFrame and _G.BankFrame.nextSlotCost) or (OneStorageBank and OneStorageBank.nextSlotCost) or 0
+        OnShow = function(self, data)
+            local cost = (data and data.cost) or (type(self.data) == "table" and self.data.cost) or self.data or (_G.BankFrame and _G.BankFrame.nextSlotCost) or (OneStorageBank and OneStorageBank.nextSlotCost) or 0
             if MoneyFrame_Update and self.moneyFrame then
                 MoneyFrame_Update(self.moneyFrame, cost)
             end
@@ -686,41 +689,109 @@ if StaticPopupDialogs then
     }
 end
 
+function OneStorageBank:GetBankSlotInfo()
+    local bankType = (Enum and Enum.BankType and Enum.BankType.Character) or 0
+    local numPurchased = 0
+    local full = false
+    local nextCost = nil
+    
+    -- 1. Modern C_Bank API (WoW Forever Beta / Camelot engine)
+    if C_Bank and (C_Bank.FetchNumPurchasedBankTabs or C_Bank.FetchPurchasedBankTabData) then
+        local maxTabs = (C_Bank.FetchMaxNumBankTabs and C_Bank.FetchMaxNumBankTabs(bankType)) or 7
+        local purchasedTabs = (C_Bank.FetchNumPurchasedBankTabs and C_Bank.FetchNumPurchasedBankTabs(bankType)) or 0
+        full = (C_Bank.HasMaxBankTabs and C_Bank.HasMaxBankTabs(bankType)) or (purchasedTabs >= maxTabs)
+        numPurchased = math.max(0, purchasedTabs - 1) -- Tab 1 is base bank container
+        
+        local tabData = C_Bank.FetchNextPurchasableBankTabData and C_Bank.FetchNextPurchasableBankTabData(bankType)
+        if tabData then
+            nextCost = tabData.tabCost
+        end
+    -- 2. Classic / Legacy WoW API Fallback
+    elseif GetNumBankSlots then
+        numPurchased, full = GetNumBankSlots()
+        if not full and GetBankSlotCost then
+            nextCost = GetBankSlotCost(numPurchased)
+        end
+    end
+    
+    return numPurchased, full, nextCost
+end
+
 function OneStorageBank:PurchaseBankSlot()
-    if not GetNumBankSlots or not GetBankSlotCost then return end
+    local bankType = (Enum and Enum.BankType and Enum.BankType.Character) or 0
     
-    local numSlots, full = GetNumBankSlots()
-    if full then
-        print("|cff00ccff[OneStorageBank]|r All bank bag slots have already been purchased.")
+    -- 1. Modern C_Bank API (WoW Forever Beta / Camelot)
+    if C_Bank and (C_Bank.PurchaseBankTab or C_Bank.FetchNextPurchasableBankTabData) then
+        local maxTabs = (C_Bank.FetchMaxNumBankTabs and C_Bank.FetchMaxNumBankTabs(bankType)) or 7
+        local purchasedTabs = (C_Bank.FetchNumPurchasedBankTabs and C_Bank.FetchNumPurchasedBankTabs(bankType)) or 0
+        local isMaxed = (C_Bank.HasMaxBankTabs and C_Bank.HasMaxBankTabs(bankType)) or (purchasedTabs >= maxTabs)
+        
+        local tabData = C_Bank.FetchNextPurchasableBankTabData and C_Bank.FetchNextPurchasableBankTabData(bankType)
+        if isMaxed or not tabData then
+            print("|cff00ccff[OneStorageBank]|r All bank bag slots have already been purchased.")
+            return
+        end
+        
+        local cost = tabData.tabCost or 0
+        if tabData.canAfford == false or (GetMoney and GetMoney() < cost) then
+            local costStr = ContainerHelper and ContainerHelper.FormatMoney and ContainerHelper:FormatMoney(cost) or tostring(cost)
+            print("|cffff0000[OneStorageBank]|r Not enough gold to purchase a bank slot (" .. costStr .. " required).")
+            return
+        end
+        
+        if _G.BankFrame then
+            _G.BankFrame.nextSlotCost = cost
+        end
+        self.nextSlotCost = cost
+        
+        PlaySound((SOUNDKIT and SOUNDKIT.IG_MAINMENU_OPTION) or 856)
+        
+        if StaticPopupDialogs and StaticPopupDialogs["CONFIRM_BUY_BANK_TAB"] and StaticPopup_Show then
+            StaticPopup_Show("CONFIRM_BUY_BANK_TAB", nil, nil, { bankType = bankType })
+        elseif StaticPopupDialogs and StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] and StaticPopup_Show then
+            StaticPopup_Show("ONE_STORAGE_BUY_BANK_SLOT", nil, nil, { bankType = bankType, cost = cost })
+        elseif C_Bank.PurchaseBankTab then
+            C_Bank.PurchaseBankTab(bankType)
+        end
         return
     end
     
-    local cost = GetBankSlotCost(numSlots)
-    if GetMoney and GetMoney() < cost then
-        local costStr = ContainerHelper and ContainerHelper.FormatMoney and ContainerHelper:FormatMoney(cost) or tostring(cost)
-        print("|cffff0000[OneStorageBank]|r Not enough gold to purchase a bank slot (" .. costStr .. " required).")
-        return
-    end
-    
-    if _G.BankFrame then
-        _G.BankFrame.nextSlotCost = cost
-    end
-    self.nextSlotCost = cost
-    
-    if StaticPopupDialogs and StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] and StaticPopup_Show then
-        StaticPopup_Show("ONE_STORAGE_BUY_BANK_SLOT", nil, nil, cost)
-    elseif PurchaseSlot then
-        PurchaseSlot()
+    -- 2. Classic / Legacy Bank API Fallback
+    if GetNumBankSlots and GetBankSlotCost then
+        local numSlots, full = GetNumBankSlots()
+        if full then
+            print("|cff00ccff[OneStorageBank]|r All bank bag slots have already been purchased.")
+            return
+        end
+        
+        local cost = GetBankSlotCost(numSlots)
+        if GetMoney and GetMoney() < cost then
+            local costStr = ContainerHelper and ContainerHelper.FormatMoney and ContainerHelper:FormatMoney(cost) or tostring(cost)
+            print("|cffff0000[OneStorageBank]|r Not enough gold to purchase a bank slot (" .. costStr .. " required).")
+            return
+        end
+        
+        if _G.BankFrame then
+            _G.BankFrame.nextSlotCost = cost
+        end
+        self.nextSlotCost = cost
+        
+        PlaySound((SOUNDKIT and SOUNDKIT.IG_MAINMENU_OPTION) or 856)
+        
+        if StaticPopupDialogs and StaticPopupDialogs["CONFIRM_BUY_BANK_SLOT"] and StaticPopup_Show then
+            StaticPopup_Show("CONFIRM_BUY_BANK_SLOT")
+        elseif StaticPopupDialogs and StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] and StaticPopup_Show then
+            StaticPopup_Show("ONE_STORAGE_BUY_BANK_SLOT", nil, nil, { cost = cost })
+        elseif PurchaseSlot then
+            PurchaseSlot()
+        end
     end
 end
 
 function OneStorageBank:UpdateBankBar()
     if not self.bankBar or not self.bankBarButtons then return end
     
-    local numPurchased, full = 0, false
-    if GetNumBankSlots then
-        numPurchased, full = GetNumBankSlots()
-    end
+    local numPurchased, full, nextCost = self:GetBankSlotInfo()
     
     for idx, btn in ipairs(self.bankBarButtons) do
         local bagID = btn:GetID()
@@ -808,7 +879,7 @@ function OneStorageBank:CreateBankBar()
         btn.Highlight = highlight
         
         btn:SetScript("OnClick", function(s, button)
-            local numPurchased = (GetNumBankSlots and GetNumBankSlots()) or 0
+            local numPurchased = OneStorageBank:GetBankSlotInfo()
             if idx > numPurchased then
                 OneStorageBank:PurchaseBankSlot()
                 return
@@ -839,14 +910,15 @@ function OneStorageBank:CreateBankBar()
         btn:SetScript("OnEnter", function(s)
             OneStorageBank:HighlightBagSlots(bagID)
             GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
-            local numPurchased = (GetNumBankSlots and GetNumBankSlots()) or 0
+            local numPurchased, full, nextCost = OneStorageBank:GetBankSlotInfo()
             if idx > numPurchased then
                 GameTooltip:SetText("Unpurchased Bank Bag Slot", 1, 0.8, 0)
-                if GetBankSlotCost then
-                    local cost = GetBankSlotCost(numPurchased)
-                    GameTooltip:AddLine("Cost: " .. ContainerHelper:FormatMoney(cost), 0.8, 0.8, 0.8)
+                if idx == (numPurchased + 1) and nextCost then
+                    GameTooltip:AddLine("Cost: " .. ContainerHelper:FormatMoney(nextCost), 0.8, 0.8, 0.8)
+                    GameTooltip:AddLine("Click to purchase this slot.", 0.2, 1.0, 0.2)
+                else
+                    GameTooltip:AddLine("Must purchase previous slots first.", 0.7, 0.7, 0.7)
                 end
-                GameTooltip:AddLine("Click to purchase this slot.", 0.2, 1.0, 0.2)
             else
                 local invID = ContainerHelper:GetBagInventoryID(bagID)
                 local hasItem = ContainerHelper:GetBagTexture(bagID)
@@ -878,15 +950,12 @@ function OneStorageBank:CreateBankBar()
     buyBtn:SetScript("OnEnter", function(s)
         GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
         GameTooltip:SetText("Purchase Bank Bag Slot", 1, 1, 1)
-        if GetBankSlotCost and GetNumBankSlots then
-            local numSlots, full = GetNumBankSlots()
-            if not full then
-                local cost = GetBankSlotCost(numSlots)
-                GameTooltip:AddLine("Cost: " .. ContainerHelper:FormatMoney(cost), 0.8, 0.8, 0.8)
-                GameTooltip:AddLine("Click to purchase next slot.", 0.2, 1.0, 0.2)
-            else
-                GameTooltip:AddLine("All bank bag slots purchased.", 0.8, 0.8, 0.8)
-            end
+        local numPurchased, full, nextCost = OneStorageBank:GetBankSlotInfo()
+        if not full and nextCost then
+            GameTooltip:AddLine("Cost: " .. ContainerHelper:FormatMoney(nextCost), 0.8, 0.8, 0.8)
+            GameTooltip:AddLine("Click to purchase next slot.", 0.2, 1.0, 0.2)
+        elseif full then
+            GameTooltip:AddLine("All bank bag slots purchased.", 0.8, 0.8, 0.8)
         end
         GameTooltip:Show()
     end)
@@ -1215,6 +1284,12 @@ function OneStorageBank:CloseBankSession()
     -- Interaction Manager (exits NPC banker dialog completely)
     if C_PlayerInteractionManager and C_PlayerInteractionManager.ClearInteraction and Enum and Enum.PlayerInteractionType then
         pcall(C_PlayerInteractionManager.ClearInteraction, Enum.PlayerInteractionType.Banker)
+        if Enum.PlayerInteractionType.CharacterBanker then
+            pcall(C_PlayerInteractionManager.ClearInteraction, Enum.PlayerInteractionType.CharacterBanker)
+        end
+        if Enum.PlayerInteractionType.AccountBanker then
+            pcall(C_PlayerInteractionManager.ClearInteraction, Enum.PlayerInteractionType.AccountBanker)
+        end
     end
     
     -- Native Blizzard BankFrame
@@ -1230,6 +1305,7 @@ function OneStorageBank:Show()
     local f = self:CreateFrame()
     f:Show()
     self:RefreshLayout()
+    self:UpdateBankBar()
 end
 
 function OneStorageBank:Hide()
@@ -1410,11 +1486,24 @@ local function SafeRegisterEvent(frame, eventName)
     pcall(function() frame:RegisterEvent(eventName) end)
 end
 
+local function IsBankInteraction(interactionType)
+    if not interactionType then return false end
+    local pit = Enum and Enum.PlayerInteractionType
+    if not pit then return false end
+    return interactionType == pit.Banker
+        or interactionType == pit.CharacterBanker
+        or interactionType == pit.AccountBanker
+end
+
 local eventFrame = CreateFrame("Frame", "OneStorageBank_EventFrame")
 SafeRegisterEvent(eventFrame, "ADDON_LOADED")
 SafeRegisterEvent(eventFrame, "PLAYER_LOGIN")
+SafeRegisterEvent(eventFrame, "PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+SafeRegisterEvent(eventFrame, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
 SafeRegisterEvent(eventFrame, "BANKFRAME_OPENED")
 SafeRegisterEvent(eventFrame, "BANKFRAME_CLOSED")
+SafeRegisterEvent(eventFrame, "BANK_TABS_CHANGED")
+SafeRegisterEvent(eventFrame, "BANK_BAG_SLOT_FLAGS_UPDATED")
 SafeRegisterEvent(eventFrame, "PLAYERBANKSLOTS_CHANGED")
 SafeRegisterEvent(eventFrame, "PLAYERBANKBAGSLOTS_CHANGED")
 SafeRegisterEvent(eventFrame, "PLAYER_EQUIPMENT_CHANGED")
@@ -1422,8 +1511,9 @@ SafeRegisterEvent(eventFrame, "BAG_CONTAINER_UPDATE")
 SafeRegisterEvent(eventFrame, "BAG_UPDATE")
 SafeRegisterEvent(eventFrame, "BAG_UPDATE_DELAYED")
 SafeRegisterEvent(eventFrame, "REAGENTBANK_UPDATE")
+SafeRegisterEvent(eventFrame, "PLAYER_MONEY")
 
-eventFrame:SetScript("OnEvent", function(self, event, arg1)
+eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
     if event == "ADDON_LOADED" and arg1 == addonName then
         _G.OneStorageBankDB = _G.OneStorageBankDB or {}
         for k, v in pairs(defaultDB) do
@@ -1436,15 +1526,26 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
     elseif event == "PLAYER_LOGIN" then
         OneStorageBank:CreateFrame()
         
+    elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
+        if IsBankInteraction(arg1) then
+            OneStorageBank:Show()
+        end
+        
+    elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
+        if IsBankInteraction(arg1) then
+            OneStorageBank:Hide()
+        end
+        
     elseif event == "BANKFRAME_OPENED" then
         OneStorageBank:Show()
         
     elseif event == "BANKFRAME_CLOSED" then
         OneStorageBank:Hide()
         
-    elseif event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYERBANKBAGSLOTS_CHANGED" or event == "PLAYER_EQUIPMENT_CHANGED" or event == "BAG_CONTAINER_UPDATE" or event == "BAG_UPDATE" or event == "REAGENTBANK_UPDATE" then
+    elseif event == "BANK_TABS_CHANGED" or event == "BANK_BAG_SLOT_FLAGS_UPDATED" or event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYERBANKBAGSLOTS_CHANGED" or event == "PLAYER_EQUIPMENT_CHANGED" or event == "BAG_CONTAINER_UPDATE" or event == "BAG_UPDATE" or event == "REAGENTBANK_UPDATE" or event == "PLAYER_MONEY" then
         if OneStorageBank.frame and OneStorageBank.frame:IsShown() then
             OneStorageBank:RefreshLayout()
+            OneStorageBank:UpdateBankBar()
         end
     end
 end)

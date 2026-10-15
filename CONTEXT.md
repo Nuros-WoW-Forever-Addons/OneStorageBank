@@ -7,7 +7,7 @@
 ## 🎯 Overview & Scope
 
 - **Addon Name**: OneStorageBank
-- **Current Version**: 0.0.2
+- **Current Version**: 0.0.3
 - **Suite**: Part of the **OneSuite** family (OneStorage Inventory Suite)
 - **GitHub Repository**:
   - Exists: TRUE
@@ -26,8 +26,8 @@
 
 ### File Structure
 - `OneStorageBank.toc`: Manifest, declares dependency on `OneStorageUtils`, SavedVariables (`OneStorageBankDB`).
-- `Core.lua`: Master bank canvas creation, sub-tabs (`selectedTab`), button grid generation, search filter highlighter, bank bag purchase confirmation dialog (`ONE_STORAGE_BUY_BANK_SLOT`) and routines, cleanup sorting, and slash commands (`/onebank`, `/osbank`).
-- `Hooks.lua`: Intercepts native Blizzard bank frame events (`BANKFRAME_OPENED`, `BANKFRAME_CLOSED`) and suppresses the default `BankFrame`.
+- `Core.lua`: Master bank canvas creation, sub-tabs (`selectedTab`), button grid generation, search filter highlighter, bank bag purchase confirmation dialog (`CONFIRM_BUY_BANK_TAB` / `ONE_STORAGE_BUY_BANK_SLOT`) and routines using modern `C_Bank` + Classic `PurchaseSlot`, cleanup sorting, and slash commands (`/onebank`, `/osbank`).
+- `Hooks.lua`: Intercepts native Blizzard bank frame events (`PLAYER_INTERACTION_MANAGER_FRAME_SHOW`/`HIDE`, `BankFrame_Open`, `BANKFRAME_OPENED`, `BANKFRAME_CLOSED`) and suppresses the default `BankFrame` safely offscreen.
 
 ### Global State & Database Schema (`OneStorageBankDB`)
 ```lua
@@ -61,6 +61,12 @@ When picking up development on this addon:
 ---
 
 ## ✅ Recent Completed Work (Latest Spins)
+
+### Spin 0.0.3
+- Fixed banker interaction not opening the bank: Added `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `HIDE` handling for `Enum.PlayerInteractionType.Banker`, `CharacterBanker`, and `AccountBanker`, and hooked `BankFrame_Open`.
+- Safely suppressed native `BankFrame` offscreen with zero alpha and mouse disabled without hiding it, preserving the active `C_Bank` server session.
+- Implemented modern `C_Bank.PurchaseBankTab`, `C_Bank.FetchNextPurchasableBankTabData`, and native `CONFIRM_BUY_BANK_TAB` popup confirmation for bank bag purchasing on WoW Forever Beta (Camelot engine).
+- Added `BANK_TABS_CHANGED`, `BANK_BAG_SLOT_FLAGS_UPDATED`, and `PLAYER_MONEY` event listeners for live dynamic bank bar updates.
 
 ### Spin 0.0.2
 - Fixed bank bag slot purchase doing nothing by implementing the confirmation dialog (`ONE_STORAGE_BUY_BANK_SLOT`) with accurate cost pass-through.
