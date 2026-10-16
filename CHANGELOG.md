@@ -10,9 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.4] - 2026-10-15
 ### Fixed
 - **Bank Slot Purchase Execution Taint (`ADDON_ACTION_FORBIDDEN`)**: Eliminated the Lua error `Forbidden function call: AddOn 'OneStorageBank' attempted to call 'PurchaseBankTab()'` caused by third-party execution taint on `StaticPopup_Show("CONFIRM_BUY_BANK_TAB")`.
-- **Untainted Native Blizzard Button Delegation**: Dynamically anchors Blizzard's native `BankFrame.BankPanel.PurchaseButton` directly onto `OneStorageBankBar` in the drawer without reparenting, preserving Blizzard's native untainted execution context when clicked.
-- **Offscreen BankFrame Transparency**: Removed `SetAlpha(0)` on `BankFrame` to allow child elements anchored to our drawer to render at full opacity while `BankFrame` remains invisible offscreen at `(2000, 2000)`.
-- **Drawer & Tab Synchronization**: Properly manages native purchase button visibility across bag bar drawer toggle, tab switches (Main Bank vs. Reagents), and window hide/close events.
+- **Native Blizzard Button Template Integration**: Implemented Blizzard's `BankPanelPurchaseButtonScriptTemplate` on the "Buy Slot" button in the bank drawer (`OneStorageBankBuySlotButton`) with `overrideBankType = Enum.BankType.Character`, allowing user hardware clicks to trigger the native `CONFIRM_BUY_BANK_TAB` static popup without third-party Lua taint.
+- **Drawer Buy Slot Button Visibility**: Ensured the "Buy Slot" button is consistently visible and styled in the drawer, dynamically toggling to `"Maxed"` (disabled) when all bank bag slots are purchased.
+- **Strict WoW Forever Beta Runtime Alignment**: Removed multi-client legacy fallback bloat, aligning runtime code strictly with Interface 16001 and Camelot `C_Bank` APIs.
 
 ---
 

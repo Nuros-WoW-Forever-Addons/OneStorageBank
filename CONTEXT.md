@@ -64,9 +64,9 @@ When picking up development on this addon:
 
 ### Spin 0.0.4
 - Eliminated `ADDON_ACTION_FORBIDDEN` / `Forbidden function call: AddOn 'OneStorageBank' attempted to call 'PurchaseBankTab()'`.
-- Implemented native Blizzard button anchoring: dynamically anchors Blizzard's untainted `BankFrame.BankPanel.PurchaseButton` directly onto `OneStorageBankBar` in the drawer without reparenting, ensuring user hardware clicks execute Blizzard's native `OnClick` script and untainted `CONFIRM_BUY_BANK_TAB` static popup.
-- Removed `BankFrame:SetAlpha(0)` in `Hooks.lua` so child frames anchored to our drawer remain fully visible while `BankFrame` stays offscreen at `(2000, 2000)`.
-- Synchronized native purchase button visibility across drawer collapse, tab switching (Main Bank vs. Reagents), and window closing.
+- Inherited Blizzard's `BankPanelPurchaseButtonScriptTemplate` on `OneStorageBankBuySlotButton` with `overrideBankType = Enum.BankType.Character`, leveraging Blizzard's native XML `OnClick` script to trigger `CONFIRM_BUY_BANK_TAB` with zero Lua execution taint.
+- Ensured the "Buy Slot" button is consistently visible and styled in the drawer, automatically disabling and displaying `"Maxed"` when all bank bag slots are purchased.
+- Cleaned multi-client legacy code out of `Core.lua`, aligning runtime strictly and cleanly with WoW Forever Beta (v1.60.1 / Interface 16001).
 
 ### Spin 0.0.3
 - Fixed banker interaction not opening the bank: Added `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `HIDE` handling for `Enum.PlayerInteractionType.Banker`, `CharacterBanker`, and `AccountBanker`, and hooked `BankFrame_Open`.
