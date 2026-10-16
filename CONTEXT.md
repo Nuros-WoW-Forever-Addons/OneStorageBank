@@ -7,7 +7,7 @@
 ## 🎯 Overview & Scope
 
 - **Addon Name**: OneStorageBank
-- **Current Version**: 0.0.4
+- **Current Version**: 0.0.5
 - **Suite**: Part of the **OneSuite** family (OneStorage Inventory Suite)
 - **GitHub Repository**:
   - Exists: TRUE
@@ -61,6 +61,13 @@ When picking up development on this addon:
 ---
 
 ## ✅ Recent Completed Work (Latest Spins)
+
+### Spin 0.0.5
+- **Suppressed Default BankFrame on Slot Purchase**: Permanently kept Blizzard's `BankFrame` invisible by setting `SetAlpha(0)`, hooking `UpdateUIPanelPositions`, and re-invoking `SuppressNativeBank()` on `BANK_TABS_CHANGED` and `PLAYERBANKSLOTS_CHANGED`.
+- **Aligned Bank Bag Container Slots**: Updated container indices from `5..11` to `6..12` (`NUM_TOTAL_EQUIPPED_BAG_SLOTS + 1` through `NUM_TOTAL_EQUIPPED_BAG_SLOTS + NUM_BANKBAGSLOTS`), preventing container 5 (character reagent bag) from colliding with bank bag sockets.
+- **Fixed Bag Equipping & Drag/Drop**: Solved `"No equipment slot is available for that item"` error by properly mapping bank bag equip and drag operations (`PutItemInBag` / `PickupBagFromSlot`) to valid bank bag equipment inventory slots (slots 68..74).
+- **Equipped Bag Visibility & Quality Glows**: Added live detection of equipped bank bags via `GetInventoryItemTexture("player", invID)` and quality borders via `GetInventoryItemQuality`, accurately reflecting equipped containers in the bank drawer.
+- **Purchased Slot Tracking via `GetNumBankSlots()`**: Aligned purchased slot counting and next slot cost queries with `GetNumBankSlots()` and `GetBankSlotCost()`, properly distinguishing unlocked bag slots from purchasable padlock slots.
 
 ### Spin 0.0.4
 - Eliminated `ADDON_ACTION_FORBIDDEN` / `Forbidden function call: AddOn 'OneStorageBank' attempted to call 'PurchaseBankTab()'`.

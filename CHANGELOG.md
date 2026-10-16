@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.5] - 2026-10-15
+### Fixed
+- **Native BankFrame Suppression on Slot Purchase**: Permanently suppressed Blizzard's default UI `BankFrame` by setting `SetAlpha(0)`, hooking `UpdateUIPanelPositions`, and re-suppressing on `BANK_TABS_CHANGED` and `PLAYERBANKSLOTS_CHANGED` so the native frame never pops up when accepting slot purchases.
+- **Bank Bag Container Slot Alignment**: Corrected bank bag container indices from `5..11` to `6..12` (`NUM_TOTAL_EQUIPPED_BAG_SLOTS + 1` through `NUM_TOTAL_EQUIPPED_BAG_SLOTS + NUM_BANKBAGSLOTS`), preventing container 5 (player reagent bag) from colliding with bank bag sockets.
+- **Equipping & Swapping Bank Bags**: Resolved `"No equipment slot is available for that item"` error by properly routing bank bag equip and drag operations (`PutItemInBag` / `PickupBagFromSlot`) to valid bank bag equipment inventory slots (slots 68..74).
+- **Equipped Bag Visibility & Quality Glows**: Added live detection of equipped bank bags via `GetInventoryItemTexture("player", invID)` and quality borders via `GetInventoryItemQuality`, accurately reflecting equipped containers in the bank drawer.
+- **Purchased Slot Tracking via `GetNumBankSlots()`**: Aligned purchased slot counting and next slot cost queries with `GetNumBankSlots()` and `GetBankSlotCost()`, properly distinguishing unlocked bag slots from purchasable padlock slots.
+
+---
+
 ## [0.0.4] - 2026-10-15
 ### Fixed
 - **Bank Slot Purchase Execution Taint (`ADDON_ACTION_FORBIDDEN`)**: Eliminated the Lua error `Forbidden function call: AddOn 'OneStorageBank' attempted to call 'PurchaseBankTab()'` caused by third-party execution taint on `StaticPopup_Show("CONFIRM_BUY_BANK_TAB")`.
