@@ -690,7 +690,9 @@ if StaticPopupDialogs and not StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] th
 end
 
 function OneStorageBank:GetBankSlotInfo()
-    local bankType = (Enum and Enum.BankType and Enum.BankType.Character) or 0
+    local bankType = (BankFrame and BankFrame.BankPanel and BankFrame.BankPanel.GetActiveBankType and BankFrame.BankPanel:GetActiveBankType())
+        or (Enum and Enum.BankType and Enum.BankType.Character)
+        or 1
     local numPurchased = 0
     local full = false
     local nextCost = nil
@@ -718,41 +720,18 @@ function OneStorageBank:GetBankSlotInfo()
 end
 
 function OneStorageBank:PurchaseBankSlot()
-    local bankType = (Enum and Enum.BankType and Enum.BankType.Character) or 0
+    local bankType = (BankFrame and BankFrame.BankPanel and BankFrame.BankPanel.GetActiveBankType and BankFrame.BankPanel:GetActiveBankType())
+        or (Enum and Enum.BankType and Enum.BankType.Character)
+        or 1
     
     -- 1. Modern C_Bank API (WoW Forever Beta / Camelot)
     if C_Bank and (C_Bank.PurchaseBankTab or C_Bank.FetchNextPurchasableBankTabData) then
-        local maxTabs = (C_Bank.FetchMaxNumBankTabs and C_Bank.FetchMaxNumBankTabs(bankType)) or 7
-        local purchasedTabs = (C_Bank.FetchNumPurchasedBankTabs and C_Bank.FetchNumPurchasedBankTabs(bankType)) or 0
-        local isMaxed = (C_Bank.HasMaxBankTabs and C_Bank.HasMaxBankTabs(bankType)) or (purchasedTabs >= maxTabs)
-        
-        local tabData = C_Bank.FetchNextPurchasableBankTabData and C_Bank.FetchNextPurchasableBankTabData(bankType)
-        if isMaxed or not tabData then
+        local numPurchased, full = self:GetBankSlotInfo()
+        if full then
             print("|cff00ccff[OneStorageBank]|r All bank bag slots have already been purchased.")
             return
         end
-        
-        local cost = tabData.tabCost or 0
-        if tabData.canAfford == false or (GetMoney and GetMoney() < cost) then
-            local costStr = ContainerHelper and ContainerHelper.FormatMoney and ContainerHelper:FormatMoney(cost) or tostring(cost)
-            print("|cffff0000[OneStorageBank]|r Not enough gold to purchase a bank slot (" .. costStr .. " required).")
-            return
-        end
-        
-        if _G.BankFrame then
-            _G.BankFrame.nextSlotCost = cost
-        end
-        self.nextSlotCost = cost
-        
-        PlaySound((SOUNDKIT and SOUNDKIT.IG_MAINMENU_OPTION) or 856)
-        
-        if StaticPopupDialogs and StaticPopupDialogs["CONFIRM_BUY_BANK_TAB"] and StaticPopup_Show then
-            StaticPopup_Show("CONFIRM_BUY_BANK_TAB", nil, nil, { bankType = bankType })
-        elseif StaticPopupDialogs and StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] and StaticPopup_Show then
-            StaticPopup_Show("ONE_STORAGE_BUY_BANK_SLOT", nil, nil, { bankType = bankType, cost = cost })
-        elseif C_Bank.PurchaseBankTab then
-            C_Bank.PurchaseBankTab(bankType)
-        end
+        print("|cff00ccff[OneStorageBank]|r Click the '|cffffd100Buy Slot|r' button in the bank drawer to confirm your purchase.")
         return
     end
     
@@ -792,6 +771,10 @@ function OneStorageBank:UpdateBankBar()
     if not self.bankBar or not self.bankBarButtons then return end
     
     local numPurchased, full, nextCost = self:GetBankSlotInfo()
+    local xOffset = (#self.bankBarButtons * 32)
+    local nativeBtn = (BankFrame and BankFrame.BankPanel and BankFrame.BankPanel.PurchaseButton)
+        or _G["BankFramePurchaseButton"]
+        or (BankPanel and BankPanel.PurchaseButton)
     
     for idx, btn in ipairs(self.bankBarButtons) do
         local bagID = btn:GetID()
@@ -823,13 +806,59 @@ function OneStorageBank:UpdateBankBar()
         end
     end
     
-    if self.bankBar.BuyButton then
-        if full then
-            self.bankBar.BuyButton:Disable()
-            self.bankBar.BuyButton:SetText("Maxed")
+    -- Handle native Blizzard purchase button (100% untainted hardware click) vs fallback
+    if nativeBtn then
+        if full or not self.isBagBarShown or not (self.frame and self.frame:IsShown()) or (self.selectedTab ~= 1) then
+            nativeBtn:Hide()
+            if self.bankBar.BuyButton then
+                if full then
+                    self.bankBar.BuyButton:SetText("Maxed")
+                    self.bankBar.BuyButton:Disable()
+                    self.bankBar.BuyButton:Show()
+                else
+                    self.bankBar.BuyButton:Hide()
+                end
+            end
         else
-            self.bankBar.BuyButton:Enable()
-            self.bankBar.BuyButton:SetText("Buy Slot")
+            if self.bankBar.BuyButton then
+                self.bankBar.BuyButton:Hide()
+            end
+            nativeBtn:ClearAllPoints()
+            nativeBtn:SetPoint("LEFT", self.bankBar, "LEFT", xOffset + 8, 0)
+            nativeBtn:SetSize(80, 22)
+            nativeBtn:SetFrameStrata(self.bankBar:GetFrameStrata())
+            nativeBtn:SetFrameLevel(self.bankBar:GetFrameLevel() + 20)
+            nativeBtn:SetAlpha(1)
+            nativeBtn:EnableMouse(true)
+            nativeBtn:Show()
+            
+            if not nativeBtn.OSB_Hooked then
+                nativeBtn:HookScript("OnEnter", function(s)
+                    GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
+                    GameTooltip:SetText("Purchase Bank Bag Slot", 1, 1, 1)
+                    local _, f, cost = OneStorageBank:GetBankSlotInfo()
+                    if not f and cost then
+                        GameTooltip:AddLine("Cost: " .. ContainerHelper:FormatMoney(cost), 0.8, 0.8, 0.8)
+                        GameTooltip:AddLine("Click to purchase next slot.", 0.2, 1.0, 0.2)
+                    elseif f then
+                        GameTooltip:AddLine("All bank bag slots purchased.", 0.8, 0.8, 0.8)
+                    end
+                    GameTooltip:Show()
+                end)
+                nativeBtn:HookScript("OnLeave", function() GameTooltip:Hide() end)
+                nativeBtn.OSB_Hooked = true
+            end
+        end
+    else
+        if self.bankBar.BuyButton then
+            if full then
+                self.bankBar.BuyButton:Disable()
+                self.bankBar.BuyButton:SetText("Maxed")
+            else
+                self.bankBar.BuyButton:Enable()
+                self.bankBar.BuyButton:SetText("Buy Slot")
+            end
+            self.bankBar.BuyButton:Show()
         end
     end
 end
@@ -915,7 +944,7 @@ function OneStorageBank:CreateBankBar()
                 GameTooltip:SetText("Unpurchased Bank Bag Slot", 1, 0.8, 0)
                 if idx == (numPurchased + 1) and nextCost then
                     GameTooltip:AddLine("Cost: " .. ContainerHelper:FormatMoney(nextCost), 0.8, 0.8, 0.8)
-                    GameTooltip:AddLine("Click to purchase this slot.", 0.2, 1.0, 0.2)
+                    GameTooltip:AddLine("Click 'Buy Slot' to purchase this slot.", 0.2, 1.0, 0.2)
                 else
                     GameTooltip:AddLine("Must purchase previous slots first.", 0.7, 0.7, 0.7)
                 end
@@ -978,6 +1007,7 @@ function OneStorageBank:ToggleBagBar()
         self.bankBar:Hide()
     end
     
+    self:UpdateBankBar()
     self:RefreshLayout()
 end
 
@@ -1007,6 +1037,7 @@ function OneStorageBank:SelectTab(tabIndex)
         end
     end
     
+    self:UpdateBankBar()
     self:RefreshLayout()
 end
 
@@ -1243,6 +1274,12 @@ function OneStorageBank:CreateFrame()
 
     local function OnBankHide()
         PlayCloseSound()
+        local nativeBtn = (BankFrame and BankFrame.BankPanel and BankFrame.BankPanel.PurchaseButton)
+            or _G["BankFramePurchaseButton"]
+            or (BankPanel and BankPanel.PurchaseButton)
+        if nativeBtn then
+            nativeBtn:Hide()
+        end
         if OneStorageBank.optionsFrame and OneStorageBank.optionsFrame:IsShown() then
             OneStorageBank.optionsFrame:Hide()
         end
@@ -1309,6 +1346,12 @@ function OneStorageBank:Show()
 end
 
 function OneStorageBank:Hide()
+    local nativeBtn = (BankFrame and BankFrame.BankPanel and BankFrame.BankPanel.PurchaseButton)
+        or _G["BankFramePurchaseButton"]
+        or (BankPanel and BankPanel.PurchaseButton)
+    if nativeBtn then
+        nativeBtn:Hide()
+    end
     if self.optionsFrame and self.optionsFrame:IsShown() then
         self.optionsFrame:Hide()
     end

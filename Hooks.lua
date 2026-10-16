@@ -19,7 +19,6 @@ end
 local function SuppressNativeBank()
     local bf = _G["BankFrame"]
     if bf then
-        bf:SetAlpha(0)
         bf:ClearAllPoints()
         bf:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 2000, 2000)
         if bf.EnableMouse then

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.4] - 2026-10-15
+### Fixed
+- **Bank Slot Purchase Execution Taint (`ADDON_ACTION_FORBIDDEN`)**: Eliminated the Lua error `Forbidden function call: AddOn 'OneStorageBank' attempted to call 'PurchaseBankTab()'` caused by third-party execution taint on `StaticPopup_Show("CONFIRM_BUY_BANK_TAB")`.
+- **Untainted Native Blizzard Button Delegation**: Dynamically anchors Blizzard's native `BankFrame.BankPanel.PurchaseButton` directly onto `OneStorageBankBar` in the drawer without reparenting, preserving Blizzard's native untainted execution context when clicked.
+- **Offscreen BankFrame Transparency**: Removed `SetAlpha(0)` on `BankFrame` to allow child elements anchored to our drawer to render at full opacity while `BankFrame` remains invisible offscreen at `(2000, 2000)`.
+- **Drawer & Tab Synchronization**: Properly manages native purchase button visibility across bag bar drawer toggle, tab switches (Main Bank vs. Reagents), and window hide/close events.
+
+---
+
 ## [0.0.3] - 2026-10-14
 ### Fixed
 - **Banker NPC Interaction**: Resolved issue where interacting with a banker NPC did nothing. Integrated modern `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `HIDE` handlers for `Banker`, `CharacterBanker`, and `AccountBanker`, hooked `BankFrame_Open`, and safely suppressed native `BankFrame` offscreen with zero alpha and mouse disabled without prematurely terminating the session.

@@ -7,7 +7,7 @@
 ## 🎯 Overview & Scope
 
 - **Addon Name**: OneStorageBank
-- **Current Version**: 0.0.3
+- **Current Version**: 0.0.4
 - **Suite**: Part of the **OneSuite** family (OneStorage Inventory Suite)
 - **GitHub Repository**:
   - Exists: TRUE
@@ -61,6 +61,12 @@ When picking up development on this addon:
 ---
 
 ## ✅ Recent Completed Work (Latest Spins)
+
+### Spin 0.0.4
+- Eliminated `ADDON_ACTION_FORBIDDEN` / `Forbidden function call: AddOn 'OneStorageBank' attempted to call 'PurchaseBankTab()'`.
+- Implemented native Blizzard button anchoring: dynamically anchors Blizzard's untainted `BankFrame.BankPanel.PurchaseButton` directly onto `OneStorageBankBar` in the drawer without reparenting, ensuring user hardware clicks execute Blizzard's native `OnClick` script and untainted `CONFIRM_BUY_BANK_TAB` static popup.
+- Removed `BankFrame:SetAlpha(0)` in `Hooks.lua` so child frames anchored to our drawer remain fully visible while `BankFrame` stays offscreen at `(2000, 2000)`.
+- Synchronized native purchase button visibility across drawer collapse, tab switching (Main Bank vs. Reagents), and window closing.
 
 ### Spin 0.0.3
 - Fixed banker interaction not opening the bank: Added `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `HIDE` handling for `Enum.PlayerInteractionType.Banker`, `CharacterBanker`, and `AccountBanker`, and hooked `BankFrame_Open`.
