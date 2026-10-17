@@ -5,6 +5,19 @@ All notable changes to **OneStorageBank** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.8] - 2026-10-16
+### Fixed
+- **Camelot Bank Tab Architecture Alignment**: Realigned bank bag containers and purchase logic with the WoW Forever Beta (Interface 16001, Camelot) engine:
+  - Base bank vault is container 6 (`Enum.BagIndex.CharacterBankTab_1`, 40 slots).
+  - Extra bank bags are containers 7 through 12 (`Enum.BagIndex.CharacterBankTab_2` through `CharacterBankTab_7`).
+  - Corrected `GetBankBagIDs()` to strictly return `{ 7, 8, 9, 10, 11, 12 }`, eliminating duplicate container 6 injection that previously created 40 duplicate empty slots on top of the bank grid.
+- **Fixed "Purchase Again" and Slot Cost Counting**: Replaced non-existent `GetNumBankSlots()` and `GetBankSlotCost()` with `C_Bank.FetchNumPurchasedBankTabs(Enum.BankType.Character)` and `C_Bank.FetchNextPurchasableBankTabData`. Accurately recognizes purchased bank tabs (`numPurchasedBags = math.max(0, numPurchasedTabs - 1)`), correctly displaying previously bought bag slots as purchased rather than prompting to repurchase.
+- **Native `CONFIRM_BUY_BANK_TAB` Purchase Flow**: Fixed nil error crash in `GameDialogDefs.lua` when confirming purchases. Replaced nonexistent `PurchaseSlot()` call with native `StaticPopup_Show("CONFIRM_BUY_BANK_TAB", nil, nil, { bankType = Enum.BankType.Character })`, correctly displaying dynamic cost and transacting via `C_Bank.PurchaseBankTab`.
+- **Equipping and Viewing Bank Bags via `Characterbanktab`**: Mapped drawer bank bag sockets directly to container `Enum.BagIndex.Characterbanktab` (-2) at slots 2..7 (`bagSlotID = socketIndex + 1`), leveraging native `C_Container.PickupContainerItem` and `C_Container.GetContainerItemInfo` for bag equipping, dragging, and live item/icon/quality display.
+- **Dynamic Bank Bag Updates**: Registered `BAG_CONTAINER_UPDATE` on hook frame to automatically refresh bank layout, drawer icons, and capacity titles immediately upon equipping or removing bank bags.
+
+---
+
 ## [0.0.7] - 2026-10-16
 ### Fixed
 - **Instant Bank & Bag Closure Loop**: Resolved issue where interacting with a banker caused the bank and bags to open and close immediately. Eliminated `hiddenParent` reparenting and timer delays which were triggering Blizzard's `BankFrameBaseMixin:OnHide` and prematurely aborting the server bank session via `CloseBankFrame()`.

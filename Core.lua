@@ -664,98 +664,50 @@ end
 -- Collapsible Bank Bag Bar (Equipped Bank Bags & Purchase Slot)
 -------------------------------------------------------------------------------
 
-if StaticPopupDialogs and not StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] then
-    StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] = {
-        text = CONFIRM_BUY_BANK_SLOT or "Do you want to purchase a bank slot for:",
-        button1 = YES or "Yes",
-        button2 = NO or "No",
-        OnAccept = function(self, data)
-            if PurchaseSlot then
-                PurchaseSlot()
-            end
-        end,
-        OnShow = function(self, data)
-            local cost = (data and data.cost) or (type(self.data) == "table" and self.data.cost) or self.data or (_G.BankFrame and _G.BankFrame.nextSlotCost) or 0
-            if MoneyFrame_Update and self.moneyFrame then
-                MoneyFrame_Update(self.moneyFrame, cost)
-            end
-        end,
-        hasMoneyFrame = 1,
-        timeout = 0,
-        hideOnEscape = 1,
-    }
-end
-
 function OneStorageBank:GetBankBagIDs()
     if ContainerHelper and ContainerHelper.GetBankBagIDs then
         return ContainerHelper:GetBankBagIDs()
     end
-    local numPlayerBags = NUM_BAG_SLOTS or 4
-    local numBankBags = NUM_BANKBAGSLOTS or 7
-    local bagIDs = {}
-    for i = (numPlayerBags + 1), (numPlayerBags + numBankBags) do
-        table.insert(bagIDs, i)
-    end
-    return bagIDs
-end
-
-function OneStorageBank:GetBankBagInventoryID(bagID, socketIndex)
-    local buttonIndex = socketIndex or (bagID and (bagID - (NUM_BAG_SLOTS or 4)))
-    if buttonIndex and buttonIndex >= 1 and buttonIndex <= (NUM_BANKBAGSLOTS or 7) then
-        if BankButtonIDToInvSlotID then
-            local ok, invID = pcall(BankButtonIDToInvSlotID, buttonIndex, true)
-            if ok and invID and invID > 0 then return invID end
-            local ok2, invID2 = pcall(BankButtonIDToInvSlotID, buttonIndex)
-            if ok2 and invID2 and invID2 > 0 then return invID2 end
-        end
-        if GetInventorySlotInfo then
-            local invID = GetInventorySlotInfo("BankBagSlot" .. buttonIndex)
-            if invID and invID > 0 then return invID end
-        end
-        return 67 + buttonIndex
-    end
-    if ContainerHelper and ContainerHelper.GetBagInventoryID then
-        return ContainerHelper:GetBagInventoryID(bagID)
-    end
-    return nil
+    return { 7, 8, 9, 10, 11, 12 }
 end
 
 function OneStorageBank:GetBankSlotInfo()
-    local numPurchased = 0
-    if GetNumBankSlots then
-        numPurchased = GetNumBankSlots() or 0
+    local bankType = (Enum and Enum.BankType and Enum.BankType.Character) or 0
+    local numPurchasedTabs = 1
+    if C_Bank and C_Bank.FetchNumPurchasedBankTabs then
+        numPurchasedTabs = C_Bank.FetchNumPurchasedBankTabs(bankType) or 1
     end
     
-    local maxSlots = NUM_BANKBAGSLOTS or 7
-    local full = (numPurchased >= maxSlots)
-    local nextCost = nil
-    
-    if not full and GetBankSlotCost then
-        nextCost = GetBankSlotCost(numPurchased)
+    local maxTabs = 7
+    if C_Bank and C_Bank.FetchMaxNumBankTabs then
+        maxTabs = C_Bank.FetchMaxNumBankTabs(bankType) or 7
     end
     
-    return numPurchased, full, nextCost
+    local tabData = nil
+    if C_Bank and C_Bank.FetchNextPurchasableBankTabData then
+        tabData = C_Bank.FetchNextPurchasableBankTabData(bankType)
+    end
+    
+    local numPurchasedBags = math.max(0, numPurchasedTabs - 1)
+    local maxBags = math.max(1, maxTabs - 1)
+    local full = (numPurchasedBags >= maxBags)
+    local nextCost = tabData and tabData.tabCost
+    
+    return numPurchasedBags, full, nextCost, numPurchasedTabs, maxBags
 end
 
 function OneStorageBank:PurchaseBankSlot()
-    local numPurchased, full, nextCost = self:GetBankSlotInfo()
+    local numPurchasedBags, full, nextCost = self:GetBankSlotInfo()
     if full then
         print("|cff00ccff[OneStorageBank]|r All bank bag slots have already been purchased.")
         return
     end
     
-    _G.BankFrame = _G.BankFrame or {}
-    _G.BankFrame.nextSlotCost = nextCost
-    
-    if StaticPopupDialogs and StaticPopupDialogs["CONFIRM_BUY_BANK_SLOT"] then
-        StaticPopup_Show("CONFIRM_BUY_BANK_SLOT")
-    elseif StaticPopupDialogs and StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] then
-        local dialog = StaticPopup_Show("ONE_STORAGE_BUY_BANK_SLOT")
-        if dialog then
-            dialog.data = { cost = nextCost }
-        end
-    elseif PurchaseSlot then
-        PurchaseSlot()
+    local bankType = (Enum and Enum.BankType and Enum.BankType.Character) or 0
+    if StaticPopupDialogs and StaticPopupDialogs["CONFIRM_BUY_BANK_TAB"] then
+        StaticPopup_Show("CONFIRM_BUY_BANK_TAB", nil, nil, { bankType = bankType })
+    elseif C_Bank and C_Bank.PurchaseBankTab then
+        C_Bank.PurchaseBankTab(bankType)
     end
 end
 
@@ -763,22 +715,20 @@ function OneStorageBank:UpdateBankBar()
     if not self.bankBar or not self.bankBarButtons then return end
     
     local numPurchased, full, nextCost = self:GetBankSlotInfo()
+    local bankEquipmentContainer = (Enum and Enum.BagIndex and Enum.BagIndex.Characterbanktab) or -2
     
     for idx, btn in ipairs(self.bankBarButtons) do
-        local bagID = btn:GetID()
         local isPurchased = (idx <= numPurchased)
         btn.isPurchased = isPurchased
         
         if isPurchased then
-            local invID = self:GetBankBagInventoryID(bagID, idx)
-            local texture = invID and GetInventoryItemTexture("player", invID)
-            if texture then
-                btn.icon:SetTexture(texture)
+            local info = C_Container and C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bankEquipmentContainer, btn.bagSlotID)
+            if info and info.iconFileID then
+                btn.icon:SetTexture(info.iconFileID)
                 btn.icon:SetVertexColor(1, 1, 1, 1)
                 
-                local quality = GetInventoryItemQuality("player", invID)
-                if quality and quality > 1 and btn.QualityBorder then
-                    local r, g, b = ContainerHelper:GetQualityColor(quality)
+                if info.quality and info.quality > 1 and btn.QualityBorder then
+                    local r, g, b = ContainerHelper:GetQualityColor(info.quality)
                     btn.QualityBorder:SetVertexColor(r, g, b, 1)
                     btn.QualityBorder:Show()
                 elseif btn.QualityBorder then
@@ -824,12 +774,15 @@ function OneStorageBank:CreateBankBar()
     
     local bankBagSlots = self:GetBankBagIDs()
     local xOffset = 0
+    local bankEquipmentContainer = (Enum and Enum.BagIndex and Enum.BagIndex.Characterbanktab) or -2
+    
     for idx, bagID in ipairs(bankBagSlots) do
         local btn = CreateFrame("Button", "OneStorageBankBarButton" .. bagID, bar)
         btn:SetSize(28, 28)
         btn:SetPoint("LEFT", bar, "LEFT", xOffset, 0)
         btn:SetID(bagID)
         btn.socketIndex = idx
+        btn.bagSlotID = idx + 1
         btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         btn:RegisterForDrag("LeftButton")
         
@@ -863,28 +816,21 @@ function OneStorageBank:CreateBankBar()
                 return
             end
             
-            local invID = OneStorageBank:GetBankBagInventoryID(s:GetID(), s.socketIndex)
-            if invID then
-                if CursorHasItem and CursorHasItem() then
-                    PutItemInBag(invID)
-                else
-                    PickupBagFromSlot(invID)
-                end
+            if C_Container and C_Container.PickupContainerItem then
+                C_Container.PickupContainerItem(bankEquipmentContainer, s.bagSlotID)
             end
         end)
         btn:SetScript("OnDragStart", function(s)
-            if s.isPurchased then
-                local invID = OneStorageBank:GetBankBagInventoryID(s:GetID(), s.socketIndex)
-                if invID and not InCombatLockdown() then
-                    PickupBagFromSlot(invID)
+            if s.isPurchased and not InCombatLockdown() then
+                if C_Container and C_Container.PickupContainerItem then
+                    C_Container.PickupContainerItem(bankEquipmentContainer, s.bagSlotID)
                 end
             end
         end)
         btn:SetScript("OnReceiveDrag", function(s)
             if s.isPurchased then
-                local invID = OneStorageBank:GetBankBagInventoryID(s:GetID(), s.socketIndex)
-                if invID then
-                    PutItemInBag(invID)
+                if C_Container and C_Container.PickupContainerItem then
+                    C_Container.PickupContainerItem(bankEquipmentContainer, s.bagSlotID)
                 end
             end
         end)
@@ -903,13 +849,18 @@ function OneStorageBank:CreateBankBar()
                     GameTooltip:AddLine("Must purchase previous slots first.", 0.7, 0.7, 0.7)
                 end
             else
-                local invID = OneStorageBank:GetBankBagInventoryID(s:GetID(), s.socketIndex)
-                local hasItem = invID and GetInventoryItemTexture("player", invID)
-                if invID and hasItem and GameTooltip.SetInventoryItem then
-                    GameTooltip:SetInventoryItem("player", invID)
-                else
-                    GameTooltip:SetText("Empty Bank Bag Slot", 1, 1, 1)
-                    GameTooltip:AddLine("Drag a bag here to expand bank storage.", 0.8, 0.8, 0.8)
+                local hasItem = false
+                if GameTooltip.SetBagItem then
+                    hasItem = GameTooltip:SetBagItem(bankEquipmentContainer, s.bagSlotID)
+                end
+                if not hasItem then
+                    local info = C_Container and C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bankEquipmentContainer, s.bagSlotID)
+                    if info and info.hyperlink and GameTooltip.SetHyperlink then
+                        GameTooltip:SetHyperlink(info.hyperlink)
+                    else
+                        GameTooltip:SetText("Empty Bank Bag Slot", 1, 1, 1)
+                        GameTooltip:AddLine("Drag a bag here to expand bank storage.", 0.8, 0.8, 0.8)
+                    end
                 end
             end
             GameTooltip:Show()

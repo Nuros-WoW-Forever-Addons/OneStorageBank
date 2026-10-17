@@ -127,6 +127,7 @@ hookFrame:RegisterEvent("BANKFRAME_OPENED")
 hookFrame:RegisterEvent("BANKFRAME_CLOSED")
 hookFrame:RegisterEvent("BANK_TABS_CHANGED")
 hookFrame:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
+hookFrame:RegisterEvent("BAG_CONTAINER_UPDATE")
 
 hookFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
@@ -149,7 +150,7 @@ hookFrame:SetScript("OnEvent", function(self, event, ...)
         SuppressNativeBank()
         OneStorageBank:Show()
 
-    elseif event == "BANK_TABS_CHANGED" or event == "PLAYERBANKSLOTS_CHANGED" then
+    elseif event == "BANK_TABS_CHANGED" or event == "PLAYERBANKSLOTS_CHANGED" or event == "BAG_CONTAINER_UPDATE" then
         if OneStorageBank and OneStorageBank.frame and OneStorageBank.frame:IsShown() then
             if OneStorageBank.UpdateBankBar then
                 OneStorageBank:UpdateBankBar()

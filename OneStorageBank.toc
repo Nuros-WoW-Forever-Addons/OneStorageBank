@@ -2,7 +2,7 @@
 ## Title: OneStorage |cff00ccffBank|r
 ## Notes: Unified bank and reagent storage with Blizzard Metal theme, search filtering, and bank bag purchasing for OneStorage Suite.
 ## Author: OneStorage Suite Team
-## Version: 0.0.7
+## Version: 0.0.8
 ## IconTexture: Interface\Icons\INV_Misc_Bag_10_Blue
 ## Dependencies: OneStorageUtils
 ## SavedVariables: OneStorageBankDB
