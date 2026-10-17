@@ -5,6 +5,16 @@ All notable changes to **OneStorageBank** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.10] - 2026-10-17
+### Fixed
+- **Eliminated `UseContainerItem` Action Blocked Taint**: Fixed Blizzard UI blocked action error (`Forbidden function call: AddOn 'OneStorageBank' attempted to call 'UNKNOWN()'`) when right-clicking recipes, consumables, or items in bags while NPC windows (such as trainer, merchant, or dialog frames) are open.
+  - Eliminated `tinyParent`, frame reparenting, and `SetScript("OnHide", ...)` overrides on Blizzard's `BankFrame`, preserving native frame hierarchy and script handlers without UI taint.
+  - Removed `hooksecurefunc("UpdateUIPanelPositions")` to prevent execution taint from propagating during Blizzard UIPanel management.
+  - Ensured `BankPanel:Hide()` is strictly invoked on `PLAYER_LOGIN` and upon bank session termination (`OnBankClosed` and `CloseBankSession`), guaranteeing `BankFrame:GetActiveBankType()` short-circuits and returns `nil` when the player is away from a banker.
+  - Suppressed `BankFrame` during open bank sessions using alpha zero, mouse disabled, and offscreen positioning without altering native object properties or templates.
+
+---
+
 ## [0.0.9] - 2026-10-17
 ### Fixed
 - **Persistent Bank Bag Drawer Visibility**: Fixed issue where the bank bag drawer (`showBagBar`) failed to persist across `/reload` and game sessions.

@@ -1240,10 +1240,14 @@ function OneStorageBank:CloseBankSession()
         end
     end
     
-    -- Native Blizzard BankFrame
+    -- Native Blizzard BankFrame and BankPanel
     local bf = _G["BankFrame"]
     if bf and bf.IsShown and bf:IsShown() then
         pcall(function() bf:Hide() end)
+    end
+    local bp = _G["BankPanel"]
+    if bp and bp.Hide then
+        pcall(function() bp:Hide() end)
     end
     
     isClosingBankSession = false
@@ -1487,6 +1491,14 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         OneStorageBank.isBagBarShown = OneStorageBank:GetOption("showBagBar") or false
         
     elseif event == "PLAYER_LOGIN" then
+        local bp = _G["BankPanel"]
+        if bp and bp.Hide then
+            pcall(function() bp:Hide() end)
+        end
+        local bf = _G["BankFrame"]
+        if bf and bf.Hide then
+            pcall(function() bf:Hide() end)
+        end
         OneStorageBank:CreateFrame()
         
     elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
