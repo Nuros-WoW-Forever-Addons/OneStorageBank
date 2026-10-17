@@ -5,6 +5,15 @@ All notable changes to **OneStorageBank** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9] - 2026-10-17
+### Fixed
+- **Persistent Bank Bag Drawer Visibility**: Fixed issue where the bank bag drawer (`showBagBar`) failed to persist across `/reload` and game sessions.
+  - Updated `OneStorageBank:ToggleBagBar()` and options checkbox to immediately persist user preferences to `OneStorageBankDB.showBagBar`.
+  - Added preference synchronization during `ADDON_LOADED`, `CreateFrame()`, and `Show()`, ensuring the bank drawer and canvas layout dynamically restore their expanded/collapsed state upon loading.
+  - Added `/onebank bagbar`, `/onebank drawer`, and `/onebank bags` slash commands for toggling bank drawer visibility.
+
+---
+
 ## [0.0.8] - 2026-10-16
 ### Fixed
 - **Camelot Bank Tab Architecture Alignment**: Realigned bank bag containers and purchase logic with the WoW Forever Beta (Interface 16001, Camelot) engine:

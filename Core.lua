@@ -902,7 +902,8 @@ function OneStorageBank:CreateBankBar()
 end
 
 function OneStorageBank:ToggleBagBar()
-    self.isBagBarShown = not self.isBagBarShown
+    self.isBagBarShown = not self:GetOption("showBagBar")
+    self:SetOption("showBagBar", self.isBagBarShown)
     if not self.bankBar then
         self:CreateBankBar()
     end
@@ -915,6 +916,9 @@ function OneStorageBank:ToggleBagBar()
     
     self:UpdateBankBar()
     self:RefreshLayout()
+    if self.optionsFrame and self.optionsFrame:IsShown() and self.optionsFrame.RefreshOptions then
+        self.optionsFrame:RefreshOptions()
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -1194,6 +1198,13 @@ function OneStorageBank:CreateFrame()
         frame:SetScript("OnHide", OnBankHide)
     end
     
+    self.isBagBarShown = self:GetOption("showBagBar") or false
+    if self.isBagBarShown then
+        if not self.bankBar then
+            self:CreateBankBar()
+        end
+    end
+    
     self:SelectTab(1)
     
     return frame
@@ -1240,6 +1251,17 @@ end
 
 function OneStorageBank:Show()
     local f = self:CreateFrame()
+    self.isBagBarShown = self:GetOption("showBagBar") or false
+    if self.isBagBarShown and self.selectedTab == 1 then
+        if not self.bankBar then
+            self:CreateBankBar()
+        end
+        self.bankBar:Show()
+    else
+        if self.bankBar then
+            self.bankBar:Hide()
+        end
+    end
     f:Show()
     self:RefreshLayout()
     self:UpdateBankBar()
@@ -1359,10 +1381,11 @@ function OneStorageBank:CreateOptionsFrame()
         "Show Bank Bag Bar",
         "Show or hide equipped bank bags and the bag purchase slot.",
         function()
-            return OneStorageBank.isBagBarShown
+            return OneStorageBank:GetOption("showBagBar")
         end,
         function(val)
             OneStorageBank.isBagBarShown = val
+            OneStorageBank:SetOption("showBagBar", val)
             if not OneStorageBank.bankBar then
                 OneStorageBank:CreateBankBar()
             end
@@ -1371,6 +1394,7 @@ function OneStorageBank:CreateOptionsFrame()
             else
                 OneStorageBank.bankBar:Hide()
             end
+            OneStorageBank:UpdateBankBar()
             OneStorageBank:RefreshLayout()
         end
     )
@@ -1460,6 +1484,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         if _G.OneStorageBankDB.showMainBank == nil then
             _G.OneStorageBankDB.showMainBank = true
         end
+        OneStorageBank.isBagBarShown = OneStorageBank:GetOption("showBagBar") or false
         
     elseif event == "PLAYER_LOGIN" then
         OneStorageBank:CreateFrame()
@@ -1503,6 +1528,8 @@ SlashCmdList["ONESTORAGEBANK"] = function(msg)
         print("|cff00ccff[OneStorageBank]|r Window position reset to default.")
     elseif cmd == "options" or cmd == "opt" or cmd == "config" then
         OneStorageBank:ToggleOptions()
+    elseif cmd == "bagbar" or cmd == "drawer" or cmd == "bags" then
+        OneStorageBank:ToggleBagBar()
     elseif cmd == "separate" or cmd == "group" or cmd == "mode" or cmd == "rows" then
         local current = OneStorageBank:GetOption("separateBags")
         OneStorageBank:SetOption("separateBags", not current)

@@ -46,6 +46,7 @@ Then start or reload World of Warcraft (`/reload`).
 | `/onebank` or `/osbank` | Open / toggle the unified bank window (view-only if away from Banker) |
 | `/osbank mode` or `/osbank separate` | Toggle between separated bank rows and merged continuous grid |
 | `/osbank cols <6-18>` | Set the column width of the bank window |
+| `/osbank bagbar` or `/osbank drawer` | Toggle bank bag drawer visibility |
 | `/osbank reset` | Reset bank window position to default |
 | `/osbank options` | Open configuration options |
 
