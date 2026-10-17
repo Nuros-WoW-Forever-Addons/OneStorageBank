@@ -670,15 +670,12 @@ if StaticPopupDialogs and not StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] th
         button1 = YES or "Yes",
         button2 = NO or "No",
         OnAccept = function(self, data)
-            local bankType = (data and data.bankType) or (Enum and Enum.BankType and Enum.BankType.Character) or 0
-            if C_Bank and C_Bank.PurchaseBankTab then
-                C_Bank.PurchaseBankTab(bankType)
-            elseif PurchaseSlot then
+            if PurchaseSlot then
                 PurchaseSlot()
             end
         end,
         OnShow = function(self, data)
-            local cost = (data and data.cost) or (type(self.data) == "table" and self.data.cost) or self.data or (_G.BankFrame and _G.BankFrame.nextSlotCost) or (OneStorageBank and OneStorageBank.nextSlotCost) or 0
+            local cost = (data and data.cost) or (type(self.data) == "table" and self.data.cost) or self.data or (_G.BankFrame and _G.BankFrame.nextSlotCost) or 0
             if MoneyFrame_Update and self.moneyFrame then
                 MoneyFrame_Update(self.moneyFrame, cost)
             end
@@ -690,36 +687,35 @@ if StaticPopupDialogs and not StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] th
 end
 
 function OneStorageBank:GetBankBagIDs()
-    local numEquipped = NUM_TOTAL_EQUIPPED_BAG_SLOTS or 5
+    if ContainerHelper and ContainerHelper.GetBankBagIDs then
+        return ContainerHelper:GetBankBagIDs()
+    end
+    local numPlayerBags = NUM_BAG_SLOTS or 4
     local numBankBags = NUM_BANKBAGSLOTS or 7
     local bagIDs = {}
-    for i = (numEquipped + 1), (numEquipped + numBankBags) do
+    for i = (numPlayerBags + 1), (numPlayerBags + numBankBags) do
         table.insert(bagIDs, i)
     end
     return bagIDs
 end
 
-function OneStorageBank:GetBankBagInventoryID(bagID)
-    if C_Container and C_Container.ContainerIDToInventoryID then
-        local ok, invID = pcall(C_Container.ContainerIDToInventoryID, bagID)
-        if ok and invID and invID > 0 then
-            return invID
+function OneStorageBank:GetBankBagInventoryID(bagID, socketIndex)
+    local buttonIndex = socketIndex or (bagID and (bagID - (NUM_BAG_SLOTS or 4)))
+    if buttonIndex and buttonIndex >= 1 and buttonIndex <= (NUM_BANKBAGSLOTS or 7) then
+        if BankButtonIDToInvSlotID then
+            local ok, invID = pcall(BankButtonIDToInvSlotID, buttonIndex, true)
+            if ok and invID and invID > 0 then return invID end
+            local ok2, invID2 = pcall(BankButtonIDToInvSlotID, buttonIndex)
+            if ok2 and invID2 and invID2 > 0 then return invID2 end
         end
-    end
-    if ContainerIDToInventoryID then
-        local ok, invID = pcall(ContainerIDToInventoryID, bagID)
-        if ok and invID and invID > 0 then
-            return invID
+        if GetInventorySlotInfo then
+            local invID = GetInventorySlotInfo("BankBagSlot" .. buttonIndex)
+            if invID and invID > 0 then return invID end
         end
-    end
-    local numEquipped = NUM_TOTAL_EQUIPPED_BAG_SLOTS or 5
-    local buttonIndex = bagID - numEquipped
-    if BankButtonIDToInvSlotID and buttonIndex > 0 then
-        local ok, slot = pcall(BankButtonIDToInvSlotID, buttonIndex, true)
-        if ok and slot and slot > 0 then return slot end
-    end
-    if buttonIndex > 0 then
         return 67 + buttonIndex
+    end
+    if ContainerHelper and ContainerHelper.GetBagInventoryID then
+        return ContainerHelper:GetBagInventoryID(bagID)
     end
     return nil
 end
@@ -728,22 +724,14 @@ function OneStorageBank:GetBankSlotInfo()
     local numPurchased = 0
     if GetNumBankSlots then
         numPurchased = GetNumBankSlots() or 0
-    elseif C_Bank and C_Bank.FetchNumPurchasedBankTabs then
-        numPurchased = math.max(0, (C_Bank.FetchNumPurchasedBankTabs(Enum.BankType.Character) or 0) - 1)
     end
     
     local maxSlots = NUM_BANKBAGSLOTS or 7
     local full = (numPurchased >= maxSlots)
     local nextCost = nil
     
-    if not full then
-        if GetBankSlotCost then
-            nextCost = GetBankSlotCost(numPurchased)
-        end
-        if not nextCost and C_Bank and C_Bank.FetchNextPurchasableBankTabData then
-            local tabData = C_Bank.FetchNextPurchasableBankTabData(Enum.BankType.Character)
-            nextCost = tabData and tabData.tabCost
-        end
+    if not full and GetBankSlotCost then
+        nextCost = GetBankSlotCost(numPurchased)
     end
     
     return numPurchased, full, nextCost
@@ -756,11 +744,18 @@ function OneStorageBank:PurchaseBankSlot()
         return
     end
     
-    local costStr = nextCost and ContainerHelper and ContainerHelper.FormatMoney and ContainerHelper:FormatMoney(nextCost) or ""
-    if costStr ~= "" then
-        print("|cff00ccff[OneStorageBank]|r Next slot cost: " .. costStr .. ". Click the '|cffffd100Buy Slot|r' button in the bank drawer to confirm.")
-    else
-        print("|cff00ccff[OneStorageBank]|r Click the '|cffffd100Buy Slot|r' button in the bank drawer to confirm your purchase.")
+    _G.BankFrame = _G.BankFrame or {}
+    _G.BankFrame.nextSlotCost = nextCost
+    
+    if StaticPopupDialogs and StaticPopupDialogs["CONFIRM_BUY_BANK_SLOT"] then
+        StaticPopup_Show("CONFIRM_BUY_BANK_SLOT")
+    elseif StaticPopupDialogs and StaticPopupDialogs["ONE_STORAGE_BUY_BANK_SLOT"] then
+        local dialog = StaticPopup_Show("ONE_STORAGE_BUY_BANK_SLOT")
+        if dialog then
+            dialog.data = { cost = nextCost }
+        end
+    elseif PurchaseSlot then
+        PurchaseSlot()
     end
 end
 
@@ -775,7 +770,7 @@ function OneStorageBank:UpdateBankBar()
         btn.isPurchased = isPurchased
         
         if isPurchased then
-            local invID = self:GetBankBagInventoryID(bagID)
+            local invID = self:GetBankBagInventoryID(bagID, idx)
             local texture = invID and GetInventoryItemTexture("player", invID)
             if texture then
                 btn.icon:SetTexture(texture)
@@ -834,6 +829,7 @@ function OneStorageBank:CreateBankBar()
         btn:SetSize(28, 28)
         btn:SetPoint("LEFT", bar, "LEFT", xOffset, 0)
         btn:SetID(bagID)
+        btn.socketIndex = idx
         btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         btn:RegisterForDrag("LeftButton")
         
@@ -867,7 +863,7 @@ function OneStorageBank:CreateBankBar()
                 return
             end
             
-            local invID = OneStorageBank:GetBankBagInventoryID(s:GetID())
+            local invID = OneStorageBank:GetBankBagInventoryID(s:GetID(), s.socketIndex)
             if invID then
                 if CursorHasItem and CursorHasItem() then
                     PutItemInBag(invID)
@@ -878,7 +874,7 @@ function OneStorageBank:CreateBankBar()
         end)
         btn:SetScript("OnDragStart", function(s)
             if s.isPurchased then
-                local invID = OneStorageBank:GetBankBagInventoryID(s:GetID())
+                local invID = OneStorageBank:GetBankBagInventoryID(s:GetID(), s.socketIndex)
                 if invID and not InCombatLockdown() then
                     PickupBagFromSlot(invID)
                 end
@@ -886,7 +882,7 @@ function OneStorageBank:CreateBankBar()
         end)
         btn:SetScript("OnReceiveDrag", function(s)
             if s.isPurchased then
-                local invID = OneStorageBank:GetBankBagInventoryID(s:GetID())
+                local invID = OneStorageBank:GetBankBagInventoryID(s:GetID(), s.socketIndex)
                 if invID then
                     PutItemInBag(invID)
                 end
@@ -899,14 +895,15 @@ function OneStorageBank:CreateBankBar()
             local numPurchased, full, nextCost = OneStorageBank:GetBankSlotInfo()
             if not s.isPurchased then
                 GameTooltip:SetText("Unpurchased Bank Bag Slot", 1, 0.8, 0)
-                if idx == (numPurchased + 1) and nextCost then
-                    GameTooltip:AddLine("Cost: " .. ContainerHelper:FormatMoney(nextCost), 0.8, 0.8, 0.8)
-                    GameTooltip:AddLine("Click 'Buy Slot' to purchase this slot.", 0.2, 1.0, 0.2)
+                if s.socketIndex == (numPurchased + 1) and nextCost then
+                    local costStr = ContainerHelper and ContainerHelper.FormatMoney and ContainerHelper:FormatMoney(nextCost) or (tostring(nextCost) .. " copper")
+                    GameTooltip:AddLine("Cost: " .. costStr, 0.8, 0.8, 0.8)
+                    GameTooltip:AddLine("Click to purchase this slot.", 0.2, 1.0, 0.2)
                 else
                     GameTooltip:AddLine("Must purchase previous slots first.", 0.7, 0.7, 0.7)
                 end
             else
-                local invID = OneStorageBank:GetBankBagInventoryID(s:GetID())
+                local invID = OneStorageBank:GetBankBagInventoryID(s:GetID(), s.socketIndex)
                 local hasItem = invID and GetInventoryItemTexture("player", invID)
                 if invID and hasItem and GameTooltip.SetInventoryItem then
                     GameTooltip:SetInventoryItem("player", invID)
@@ -927,16 +924,19 @@ function OneStorageBank:CreateBankBar()
     end
     
     -- Purchase Bank Slot Button
-    local buyBtn = FrameHelper:CreateSilverButton(bar, "OneStorageBankBuySlotButton", "Buy Slot", "BankPanelPurchaseButtonScriptTemplate, UIPanelButtonTemplate")
+    local buyBtn = FrameHelper:CreateSilverButton(bar, "OneStorageBankBuySlotButton", "Buy Slot", "UIPanelButtonTemplate")
     buyBtn:SetSize(80, 22)
     buyBtn:SetPoint("LEFT", bar, "LEFT", xOffset + 8, 0)
-    buyBtn:SetAttribute("overrideBankType", Enum.BankType.Character)
+    buyBtn:SetScript("OnClick", function()
+        OneStorageBank:PurchaseBankSlot()
+    end)
     buyBtn:HookScript("OnEnter", function(s)
         GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
         GameTooltip:SetText("Purchase Bank Bag Slot", 1, 1, 1)
         local numPurchased, full, nextCost = OneStorageBank:GetBankSlotInfo()
         if not full and nextCost then
-            GameTooltip:AddLine("Cost: " .. ContainerHelper:FormatMoney(nextCost), 0.8, 0.8, 0.8)
+            local costStr = ContainerHelper and ContainerHelper.FormatMoney and ContainerHelper:FormatMoney(nextCost) or (tostring(nextCost) .. " copper")
+            GameTooltip:AddLine("Cost: " .. costStr, 0.8, 0.8, 0.8)
             GameTooltip:AddLine("Click to purchase next slot.", 0.2, 1.0, 0.2)
         elseif full then
             GameTooltip:AddLine("All bank bag slots purchased.", 0.8, 0.8, 0.8)

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.6] - 2026-10-16
+### Fixed
+- **Bank Bag Container Alignment (5..11)**: Corrected bank bags to strictly `{ 5, 6, 7, 8, 9, 10, 11 }`. Bank bag socket 1 corresponds to container 5 (inventory slot 68), resolving the issue where socket 1 erroneously displayed the default bank box from container 6 (`CharacterBankTab_1`).
+- **Equipping & Displaying Bank Bags**: Direct inventory slot mapping (`BankButtonIDToInvSlotID(socketIndex, true)` / slots 68..74) allows player to equip bags by clicking or dragging onto drawer sockets without "No equipment slot available" errors, and accurately displays equipped bags and empty purchased sockets.
+- **Native BankFrame Reparenting & Permanent Suppression**: Integrated Bagnon-style suppression in `Hooks.lua` (reparenting to a scale-0.0001, alpha-0 tiny frame and hidden parent) to ensure Blizzard's native `BankFrame` never pops up when opening the bank or confirming slot purchases.
+- **Slot Purchase Dialog Execution**: Repaired "Buy Slot" button and drawer socket clicks to set `BankFrame.nextSlotCost` and invoke the confirmation dialog cleanly without triggering Blizzard's `BankPanelPurchaseButton_OnClick`.
+- **Eliminated Ghost 40-Slot Grid Container**: Prevented empty/unpurchased bank bags from injecting empty containers into the item canvas.
+
+---
+
 ## [0.0.5] - 2026-10-15
 ### Fixed
 - **Native BankFrame Suppression on Slot Purchase**: Permanently suppressed Blizzard's default UI `BankFrame` by setting `SetAlpha(0)`, hooking `UpdateUIPanelPositions`, and re-suppressing on `BANK_TABS_CHANGED` and `PLAYERBANKSLOTS_CHANGED` so the native frame never pops up when accepting slot purchases.

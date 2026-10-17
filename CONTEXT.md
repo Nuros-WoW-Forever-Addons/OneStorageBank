@@ -7,7 +7,7 @@
 ## 🎯 Overview & Scope
 
 - **Addon Name**: OneStorageBank
-- **Current Version**: 0.0.5
+- **Current Version**: 0.0.6
 - **Suite**: Part of the **OneSuite** family (OneStorage Inventory Suite)
 - **GitHub Repository**:
   - Exists: TRUE
@@ -61,6 +61,13 @@ When picking up development on this addon:
 ---
 
 ## ✅ Recent Completed Work (Latest Spins)
+
+### Spin 0.0.6
+- **Corrected Bank Bag Containers (5..11)**: Realigned bank bag IDs from erroneous 6..12 back to `{ 5, 6, 7, 8, 9, 10, 11 }`. Bank bag socket 1 corresponds directly to container 5 (inventory slot 68), resolving the issue where socket 1 showed the default bank box from container 6 (`CharacterBankTab_1`).
+- **Equipping & Displaying Bank Bags**: Mapped bank bag sockets directly to inventory slots 68..74 via `BankButtonIDToInvSlotID(socketIndex, true)`. Players can equip bags by clicking or dragging onto drawer sockets without "No equipment slot available" errors, and equipped bags accurately display in the bank drawer.
+- **Bagnon-Style Native BankFrame Suppression**: Implemented tiny-frame reparenting (`scale 0.0001`, `alpha 0`) and hidden parent hooks in `Hooks.lua` across `ShowUIPanel`, `UpdateUIPanelPositions`, `BankFrame_Open`, and bank interaction events so Blizzard's `BankFrame` is permanently suppressed.
+- **Fixed Purchase Dialog & "Buy Slot" Button**: Rewired "Buy Slot" button using `UIPanelButtonTemplate` to invoke `PurchaseBankSlot()` directly, setting `BankFrame.nextSlotCost` so native confirmation dialog renders correct cost without opening `BankFrame`.
+- **Eliminated Ghost 40-Slot Grid Container**: Removed unpurchased/empty containers from canvas layout so bank capacity displays cleanly.
 
 ### Spin 0.0.5
 - **Suppressed Default BankFrame on Slot Purchase**: Permanently kept Blizzard's `BankFrame` invisible by setting `SetAlpha(0)`, hooking `UpdateUIPanelPositions`, and re-invoking `SuppressNativeBank()` on `BANK_TABS_CHANGED` and `PLAYERBANKSLOTS_CHANGED`.
