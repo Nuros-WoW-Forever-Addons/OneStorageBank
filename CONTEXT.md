@@ -7,7 +7,7 @@
 ## 🎯 Overview & Scope
 
 - **Addon Name**: OneStorageBank
-- **Current Version**: 0.0.6
+- **Current Version**: 0.0.7
 - **Suite**: Part of the **OneSuite** family (OneStorage Inventory Suite)
 - **GitHub Repository**:
   - Exists: TRUE
@@ -61,6 +61,12 @@ When picking up development on this addon:
 ---
 
 ## ✅ Recent Completed Work (Latest Spins)
+
+### Spin 0.0.7
+- **Resolved Immediate Open/Close Loop**: Fixed bank and bags closing immediately upon opening. Eliminated `hiddenParent` reparenting and timer delays which were prematurely firing Blizzard's `BankFrameBaseMixin:OnHide` and calling `CloseBankFrame()`.
+- **Eliminated `FetchMaxNumBankTabs` Nil Crash**: Fixed Lua error on subsequent banker interactions by keeping `BankPanel` intact and parented to `BankFrame`, ensuring `self:GetActiveBankType()` reliably returns `Enum.BankType.Character`.
+- **Native `OnHide` Hook Suppression**: Followed BagBrother's `uiOverrides` pattern by temporarily disabling `BankFrame:GetScript("OnHide")` while `BankFrame` is suppressed in the persistent `tinyParent` frame (`scale 0.0001`, `alpha 0`), restoring it cleanly on actual session termination.
+- **Removed Unknown Event Registration**: Removed non-existent event `PLAYERBANKBAGSLOTS_CHANGED` from `Hooks.lua` and `Core.lua`.
 
 ### Spin 0.0.6
 - **Corrected Bank Bag Containers (5..11)**: Realigned bank bag IDs from erroneous 6..12 back to `{ 5, 6, 7, 8, 9, 10, 11 }`. Bank bag socket 1 corresponds directly to container 5 (inventory slot 68), resolving the issue where socket 1 showed the default bank box from container 6 (`CharacterBankTab_1`).

@@ -1491,7 +1491,6 @@ SafeRegisterEvent(eventFrame, "BANKFRAME_CLOSED")
 SafeRegisterEvent(eventFrame, "BANK_TABS_CHANGED")
 SafeRegisterEvent(eventFrame, "BANK_BAG_SLOT_FLAGS_UPDATED")
 SafeRegisterEvent(eventFrame, "PLAYERBANKSLOTS_CHANGED")
-SafeRegisterEvent(eventFrame, "PLAYERBANKBAGSLOTS_CHANGED")
 SafeRegisterEvent(eventFrame, "PLAYER_EQUIPMENT_CHANGED")
 SafeRegisterEvent(eventFrame, "BAG_CONTAINER_UPDATE")
 SafeRegisterEvent(eventFrame, "BAG_UPDATE")
@@ -1530,7 +1529,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
     elseif event == "BANKFRAME_CLOSED" then
         OneStorageBank:Hide()
         
-    elseif event == "BANK_TABS_CHANGED" or event == "BANK_BAG_SLOT_FLAGS_UPDATED" or event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYERBANKBAGSLOTS_CHANGED" or event == "PLAYER_EQUIPMENT_CHANGED" or event == "BAG_CONTAINER_UPDATE" or event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" or event == "REAGENTBANK_UPDATE" or event == "PLAYER_MONEY" then
+    elseif event == "BANK_TABS_CHANGED" or event == "BANK_BAG_SLOT_FLAGS_UPDATED" or event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYER_EQUIPMENT_CHANGED" or event == "BAG_CONTAINER_UPDATE" or event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" or event == "REAGENTBANK_UPDATE" or event == "PLAYER_MONEY" then
         if OneStorageBank.frame and OneStorageBank.frame:IsShown() then
             OneStorageBank:RefreshLayout()
             OneStorageBank:UpdateBankBar()

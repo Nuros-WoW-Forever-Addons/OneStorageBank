@@ -5,6 +5,13 @@ All notable changes to **OneStorageBank** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2026-10-16
+### Fixed
+- **Instant Bank & Bag Closure Loop**: Resolved issue where interacting with a banker caused the bank and bags to open and close immediately. Eliminated `hiddenParent` reparenting and timer delays which were triggering Blizzard's `BankFrameBaseMixin:OnHide` and prematurely aborting the server bank session via `CloseBankFrame()`.
+- **Camelot `FetchMaxNumBankTabs` Nil Crash**: Fixed Lua error `bad argument #1 to 'FetchMaxNumBankTabs'` on subsequent banker interactions. Never unparent or hide `BankPanel` away from `BankFrame`, ensuring `BankPanel:IsShown()` stays true and `self:GetActiveBankType()` returns a valid `Enum.BankType.Character`.
+- **Native `OnHide` Script Suppression**: Following BagBrother's `uiOverrides` pattern, temporarily saved and disabled `BankFrame:GetScript("OnHide")` while `BankFrame` is suppressed in the persistent, scale-0.0001, alpha-0 `tinyParent`, restoring it cleanly upon session closure.
+- **Removed Unknown Event Registration**: Removed non-existent event `PLAYERBANKBAGSLOTS_CHANGED` from `Hooks.lua` and `Core.lua`.
+
 ---
 
 ## [0.0.6] - 2026-10-16

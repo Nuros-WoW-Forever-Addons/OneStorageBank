@@ -1,20 +1,19 @@
 --[[
     OneStorageBank - Hooks.lua
     Suppresses native Blizzard BankFrame and coordinates bank window opening and closing
-    across modern Camelot (11.x PlayerInteractionManager) and legacy bank events.
+    across modern Camelot (11.x PlayerInteractionManager) and bank events.
 --]]
 
 local addonName, addonTable = ...
 local OneStorageBank = _G.OneStorageBank or addonTable
 
-local hiddenParent = CreateFrame("Frame", "OneStorageBank_HiddenParent")
-hiddenParent:Hide()
-
 local tinyParent = CreateFrame("Frame", "OneStorageBank_TinyParent", UIParent)
 tinyParent:SetScale(0.0001)
 tinyParent:SetAlpha(0)
+tinyParent:EnableMouse(false)
 tinyParent:ClearAllPoints()
 tinyParent:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 2000, 2000)
+tinyParent:Show()
 
 local function IsBankInteraction(interactionType)
     if not interactionType then return false end
@@ -28,49 +27,67 @@ end
 local function SuppressNativeBank()
     local bf = _G["BankFrame"]
     if bf then
+        if not bf.__origOnHide then
+            bf.__origOnHide = bf:GetScript("OnHide")
+        end
+        bf:SetScript("OnHide", nil)
         bf:SetAlpha(0)
         bf:EnableMouse(false)
-        if bf:GetParent() ~= hiddenParent and bf:GetParent() ~= tinyParent then
+        if bf:GetParent() ~= tinyParent then
             bf:SetParent(tinyParent)
         end
         bf:ClearAllPoints()
         bf:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 2000, 2000)
     end
-    local bp = _G["BankPanel"]
-    if bp then
-        bp:SetAlpha(0)
-        bp:EnableMouse(false)
-        if bp:GetParent() ~= hiddenParent and bp:GetParent() ~= tinyParent then
-            bp:SetParent(tinyParent)
+end
+
+local isRestoringBank = false
+local function RestoreNativeBank()
+    if isRestoringBank then return end
+    isRestoringBank = true
+    
+    local bf = _G["BankFrame"]
+    if bf then
+        bf:SetParent(UIParent)
+        bf:SetAlpha(1)
+        bf:EnableMouse(true)
+        if bf.__origOnHide then
+            bf:SetScript("OnHide", bf.__origOnHide)
+            bf.__origOnHide = nil
         end
-        bp:ClearAllPoints()
-        bp:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 2000, 2000)
+        bf:Hide()
+    end
+    
+    isRestoringBank = false
+end
+
+local function OnBankClosed()
+    RestoreNativeBank()
+    if OneStorageBank and OneStorageBank.frame and OneStorageBank.frame:IsShown() then
+        OneStorageBank.frame:Hide()
+    end
+    if OneStorageBank and OneStorageBank.optionsFrame and OneStorageBank.optionsFrame:IsShown() then
+        OneStorageBank.optionsFrame:Hide()
     end
 end
 
--- Securely hook ShowUIPanel (Bagnon technique: scale down to 0.0001 and then parent to hiddenParent)
+-- Securely hook ShowUIPanel (Bagnon technique: scale down to 0.0001 and disable native OnHide)
 if ShowUIPanel then
     hooksecurefunc("ShowUIPanel", function(panel)
         local bf = _G["BankFrame"]
         if panel and (panel == bf or (panel.GetName and panel:GetName() == "BankFrame")) then
             SuppressNativeBank()
             OneStorageBank:Show()
-            C_Timer.After(0, function()
-                local frame = _G["BankFrame"]
-                if frame and frame:IsShown() then
-                    frame:SetParent(hiddenParent)
-                end
-            end)
         end
     end)
 end
 
--- Guard against Blizzard UIPanel manager resetting BankFrame position/alpha
-if UpdateUIPanelPositions then
-    hooksecurefunc("UpdateUIPanelPositions", function()
+-- Securely hook HideUIPanel
+if HideUIPanel then
+    hooksecurefunc("HideUIPanel", function(panel)
         local bf = _G["BankFrame"]
-        if bf and (bf:IsShown() or bf:GetParent() == tinyParent or bf:GetParent() == hiddenParent) then
-            SuppressNativeBank()
+        if panel and (panel == bf or (panel.GetName and panel:GetName() == "BankFrame")) then
+            OnBankClosed()
         end
     end)
 end
@@ -83,18 +100,15 @@ if BankFrame_Open then
     end)
 end
 
-local function OnBankClosed()
-    local bf = _G["BankFrame"]
-    if bf then
-        bf:SetParent(UIParent)
-        bf:Hide()
-    end
-    local bp = _G["BankPanel"]
-    if bp then
-        bp:SetParent(UIParent)
-        bp:Hide()
-    end
-    OneStorageBank:Hide()
+-- Guard against Blizzard UIPanel manager resetting BankFrame position/alpha
+if UpdateUIPanelPositions then
+    hooksecurefunc("UpdateUIPanelPositions", function()
+        local bf = _G["BankFrame"]
+        if bf and bf:GetParent() == tinyParent then
+            bf:SetAlpha(0)
+            bf:EnableMouse(false)
+        end
+    end)
 end
 
 -- Securely hook CloseBankFrame and C_Bank.CloseBankFrame
@@ -113,48 +127,16 @@ hookFrame:RegisterEvent("BANKFRAME_OPENED")
 hookFrame:RegisterEvent("BANKFRAME_CLOSED")
 hookFrame:RegisterEvent("BANK_TABS_CHANGED")
 hookFrame:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
-hookFrame:RegisterEvent("PLAYERBANKBAGSLOTS_CHANGED")
 
 hookFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
         SuppressNativeBank()
-        local bf = _G["BankFrame"]
-        if bf and bf.HookScript then
-            bf:HookScript("OnShow", function(s)
-                SuppressNativeBank()
-                OneStorageBank:Show()
-                C_Timer.After(0, function()
-                    if s and s:IsShown() then
-                        s:SetParent(hiddenParent)
-                    end
-                end)
-            end)
-            bf:HookScript("OnHide", function()
-                OnBankClosed()
-            end)
-            bf:HookScript("OnUpdate", function(s)
-                if OneStorageBank and OneStorageBank.frame and OneStorageBank.frame:IsShown() then
-                    if s:GetAlpha() > 0 then
-                        s:SetAlpha(0)
-                    end
-                    if s:IsMouseEnabled() then
-                        s:EnableMouse(false)
-                    end
-                end
-            end)
-        end
 
     elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
         local interactionType = ...
         if IsBankInteraction(interactionType) then
             SuppressNativeBank()
             OneStorageBank:Show()
-            C_Timer.After(0, function()
-                local bf = _G["BankFrame"]
-                if bf and bf:IsShown() then
-                    bf:SetParent(hiddenParent)
-                end
-            end)
         end
 
     elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" or event == "BANKFRAME_CLOSED" then
@@ -166,15 +148,8 @@ hookFrame:SetScript("OnEvent", function(self, event, ...)
     elseif event == "BANKFRAME_OPENED" then
         SuppressNativeBank()
         OneStorageBank:Show()
-        C_Timer.After(0, function()
-            local bf = _G["BankFrame"]
-            if bf and bf:IsShown() then
-                bf:SetParent(hiddenParent)
-            end
-        end)
 
-    elseif event == "BANK_TABS_CHANGED" or event == "PLAYERBANKSLOTS_CHANGED" or event == "PLAYERBANKBAGSLOTS_CHANGED" then
-        SuppressNativeBank()
+    elseif event == "BANK_TABS_CHANGED" or event == "PLAYERBANKSLOTS_CHANGED" then
         if OneStorageBank and OneStorageBank.frame and OneStorageBank.frame:IsShown() then
             if OneStorageBank.UpdateBankBar then
                 OneStorageBank:UpdateBankBar()
