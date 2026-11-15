@@ -702,13 +702,7 @@ function OneStorageBank:PurchaseBankSlot()
         print("|cff00ccff[OneStorageBank]|r All bank bag slots have already been purchased.")
         return
     end
-    
-    local bankType = (Enum and Enum.BankType and Enum.BankType.Character) or 0
-    if StaticPopupDialogs and StaticPopupDialogs["CONFIRM_BUY_BANK_TAB"] then
-        StaticPopup_Show("CONFIRM_BUY_BANK_TAB", nil, nil, { bankType = bankType })
-    elseif C_Bank and C_Bank.PurchaseBankTab then
-        C_Bank.PurchaseBankTab(bankType)
-    end
+    print("|cff00ccff[OneStorageBank]|r Click the '|cffffd100Buy Slot|r' button in the bank drawer to confirm your purchase.")
 end
 
 function OneStorageBank:UpdateBankBar()
@@ -812,7 +806,7 @@ function OneStorageBank:CreateBankBar()
         
         btn:SetScript("OnClick", function(s, button)
             if not s.isPurchased then
-                OneStorageBank:PurchaseBankSlot()
+                print("|cff00ccff[OneStorageBank]|r Click the '|cffffd100Buy Slot|r' button in the bank drawer to confirm your purchase.")
                 return
             end
             
@@ -844,7 +838,7 @@ function OneStorageBank:CreateBankBar()
                 if s.socketIndex == (numPurchased + 1) and nextCost then
                     local costStr = ContainerHelper and ContainerHelper.FormatMoney and ContainerHelper:FormatMoney(nextCost) or (tostring(nextCost) .. " copper")
                     GameTooltip:AddLine("Cost: " .. costStr, 0.8, 0.8, 0.8)
-                    GameTooltip:AddLine("Click to purchase this slot.", 0.2, 1.0, 0.2)
+                    GameTooltip:AddLine("Click 'Buy Slot' to purchase this slot.", 0.2, 1.0, 0.2)
                 else
                     GameTooltip:AddLine("Must purchase previous slots first.", 0.7, 0.7, 0.7)
                 end
@@ -874,13 +868,20 @@ function OneStorageBank:CreateBankBar()
         xOffset = xOffset + 32
     end
     
-    -- Purchase Bank Slot Button
-    local buyBtn = FrameHelper:CreateSilverButton(bar, "OneStorageBankBuySlotButton", "Buy Slot", "UIPanelButtonTemplate")
+    -- Purchase Bank Slot Button (Inherits BankPanelPurchaseButtonScriptTemplate for untainted hardware clicks)
+    local buyBtn = FrameHelper:CreateSilverButton(bar, "OneStorageBankBuySlotButton", "Buy Slot", "BankPanelPurchaseButtonScriptTemplate, UIPanelButtonTemplate")
     buyBtn:SetSize(80, 22)
     buyBtn:SetPoint("LEFT", bar, "LEFT", xOffset + 8, 0)
-    buyBtn:SetScript("OnClick", function()
-        OneStorageBank:PurchaseBankSlot()
-    end)
+    
+    local bankType = (Enum and Enum.BankType and Enum.BankType.Character) or 0
+    buyBtn:SetAttribute("overrideBankType", bankType)
+    buyBtn.bankType = bankType
+    
+    -- Hide default icon from BankPanelPurchaseButtonScriptTemplate so silver styling is clean
+    local defaultIcon = _G["OneStorageBankBuySlotButtonIcon"] or buyBtn.Icon
+    if defaultIcon then
+        defaultIcon:Hide()
+    end
     buyBtn:HookScript("OnEnter", function(s)
         GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
         GameTooltip:SetText("Purchase Bank Bag Slot", 1, 1, 1)
@@ -1240,14 +1241,10 @@ function OneStorageBank:CloseBankSession()
         end
     end
     
-    -- Native Blizzard BankFrame and BankPanel
+    -- Native Blizzard BankFrame
     local bf = _G["BankFrame"]
     if bf and bf.IsShown and bf:IsShown() then
         pcall(function() bf:Hide() end)
-    end
-    local bp = _G["BankPanel"]
-    if bp and bp.Hide then
-        pcall(function() bp:Hide() end)
     end
     
     isClosingBankSession = false
@@ -1491,10 +1488,6 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         OneStorageBank.isBagBarShown = OneStorageBank:GetOption("showBagBar") or false
         
     elseif event == "PLAYER_LOGIN" then
-        local bp = _G["BankPanel"]
-        if bp and bp.Hide then
-            pcall(function() bp:Hide() end)
-        end
         local bf = _G["BankFrame"]
         if bf and bf.Hide then
             pcall(function() bf:Hide() end)

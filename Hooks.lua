@@ -24,6 +24,12 @@ local function SuppressNativeBank()
         bf:ClearAllPoints()
         bf:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", 2000, 2000)
     end
+    -- In Camelot (Interface 16001), BankPanel must be shown so BankFrame:GetActiveBankType()
+    -- returns Enum.BankType.Character (1) without crashing FetchMaxNumBankTabs / FetchNumPurchasedBankTabs
+    local bp = _G["BankPanel"]
+    if bp and bp.Show and not bp:IsShown() then
+        bp:Show()
+    end
 end
 
 local isRestoringBank = false
@@ -40,13 +46,6 @@ local function RestoreNativeBank()
         if bf.IsShown and bf:IsShown() then
             bf:Hide()
         end
-    end
-    
-    -- Crucial: Hiding BankPanel ensures BankFrame:GetActiveBankType() short-circuits
-    -- and returns nil when away from the bank, preventing UseContainerItem taint.
-    local bp = _G["BankPanel"]
-    if bp and bp.Hide then
-        bp:Hide()
     end
     
     isRestoringBank = false
@@ -111,11 +110,6 @@ hookFrame:RegisterEvent("BAG_CONTAINER_UPDATE")
 
 hookFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
-        -- Guarantee BankPanel and BankFrame start completely hidden on login
-        local bp = _G["BankPanel"]
-        if bp and bp.Hide then
-            bp:Hide()
-        end
         local bf = _G["BankFrame"]
         if bf and bf.Hide then
             bf:Hide()

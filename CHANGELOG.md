@@ -5,6 +5,20 @@ All notable changes to **OneStorageBank** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.12] - 2026-11-14
+### Fixed
+- **Eliminated `PurchaseBankTab()` Action Blocked Taint**: Fixed Blizzard UI forbidden action error (`Forbidden function call: AddOn 'OneStorageBank' attempted to call 'PurchaseBankTab()'`) when purchasing a bank slot:
+  - Re-inherited Blizzard's native `BankPanelPurchaseButtonScriptTemplate` on the drawer "Buy Slot" button (`OneStorageBankBuySlotButton`) with `overrideBankType = Enum.BankType.Character`, removing custom Lua `OnClick` overrides so Blizzard's native XML script triggers `CONFIRM_BUY_BANK_TAB` with zero execution taint.
+  - Updated unpurchased bank bag slot button click and hover tooltip to guide the player to click the "Buy Slot" button, avoiding third-party tainted invocation of the confirmation dialog.
+
+---
+
+## [0.0.11] - 2026-10-17
+### Fixed
+- **Blizzard BankFrame Initialization (`BankPanel` Visibility)**: Fixed `bad argument #1 to 'FetchMaxNumBankTabs'` and `'FetchNumPurchasedBankTabs'` errors when opening the bank at a banker NPC. In Camelot (Interface 16001), `BankFrame` has no `TabSystem` and expects `BankPanel` to remain shown so `BankFrameBaseMixin:GetActiveBankType()` correctly returns `Enum.BankType.Character` (1). Ensured `BankPanel:Show()` is called in `SuppressNativeBank()` and removed artificial `BankPanel:Hide()` calls from `PLAYER_LOGIN`, `RestoreNativeBank()`, and `CloseBankSession()`.
+
+---
+
 ## [0.0.10] - 2026-10-17
 ### Fixed
 - **Eliminated `UseContainerItem` Action Blocked Taint**: Fixed Blizzard UI blocked action error (`Forbidden function call: AddOn 'OneStorageBank' attempted to call 'UNKNOWN()'`) when right-clicking recipes, consumables, or items in bags while NPC windows (such as trainer, merchant, or dialog frames) are open.
