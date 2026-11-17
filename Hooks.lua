@@ -52,6 +52,10 @@ local function RestoreNativeBank()
 end
 
 local function OnBankClosed()
+    if OneStorageBank then
+        OneStorageBank.isLiveBanker = false
+        OneStorageBank.isReadOnly = true
+    end
     RestoreNativeBank()
     if OneStorageBank and OneStorageBank.frame and OneStorageBank.frame:IsShown() then
         OneStorageBank.frame:Hide()
@@ -67,7 +71,7 @@ if ShowUIPanel then
         local bf = _G["BankFrame"]
         if panel and (panel == bf or (panel.GetName and panel:GetName() == "BankFrame")) then
             SuppressNativeBank()
-            OneStorageBank:Show()
+            OneStorageBank:Show(true)
         end
     end)
 end
@@ -86,7 +90,7 @@ end
 if BankFrame_Open then
     hooksecurefunc("BankFrame_Open", function()
         SuppressNativeBank()
-        OneStorageBank:Show()
+        OneStorageBank:Show(true)
     end)
 end
 
@@ -119,7 +123,7 @@ hookFrame:SetScript("OnEvent", function(self, event, ...)
         local interactionType = ...
         if IsBankInteraction(interactionType) then
             SuppressNativeBank()
-            OneStorageBank:Show()
+            OneStorageBank:Show(true)
         end
 
     elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" or event == "BANKFRAME_CLOSED" then
@@ -130,10 +134,16 @@ hookFrame:SetScript("OnEvent", function(self, event, ...)
 
     elseif event == "BANKFRAME_OPENED" then
         SuppressNativeBank()
-        OneStorageBank:Show()
+        OneStorageBank:Show(true)
 
     elseif event == "BANK_TABS_CHANGED" or event == "PLAYERBANKSLOTS_CHANGED" or event == "BAG_CONTAINER_UPDATE" then
         if OneStorageBank and OneStorageBank.frame and OneStorageBank.frame:IsShown() then
+            if OneStorageBank.isLiveBanker then
+                local cache = OneStorageUtils and OneStorageUtils.CharacterCache
+                if cache and cache.ScheduleBankScan then
+                    cache:ScheduleBankScan()
+                end
+            end
             if OneStorageBank.UpdateBankBar then
                 OneStorageBank:UpdateBankBar()
             end

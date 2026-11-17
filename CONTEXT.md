@@ -7,7 +7,7 @@
 ## 🎯 Overview & Scope
 
 - **Addon Name**: OneStorageBank
-- **Current Version**: 0.0.12
+- **Current Version**: 0.0.15
 - **Suite**: Part of the **OneSuite** family (OneStorage Inventory Suite)
 - **GitHub Repository**:
   - Exists: TRUE
@@ -51,7 +51,7 @@ OneStorageBankDB = {
 When picking up development on this addon:
 
 1. **Orientation**: Read `CONTEXT.md` (this file) to verify current state, known issues, and active backlog items.
-2. **Implementation**: Execute changes. For code refactoring or boilerplate, delegate to `qwen2.5-coder:32b` via the local `gx10_ollama` MCP server as mandated by user rules.
+2. **Implementation**: Execute changes. For code refactoring or boilerplate, delegate to NVIDIA Nemotron 3 Super 120B via the local `nemotron` MCP server as mandated by user rules.
 3. **Verification**: Verify in-game syntax and test using `/onebank` or visiting a Banker.
 4. **Handoff Update**:
    - Move completed tasks from **Upcoming Backlog** to **Recent Completed Work**.
@@ -61,6 +61,52 @@ When picking up development on this addon:
 ---
 
 ## ✅ Recent Completed Work (Latest Spins)
+
+### Spin 0.0.19
+- **Persistent Live Banker State Clearing**:
+  - `isLiveBanker` remained `true` in memory after leaving the banker NPC because `CloseBankSession()`, `Hide()`, and `OnBankClosed()` never cleared the flag.
+  - When opening the bank away from town, `Show()` assumed the player was still live at a banker and attempted live container queries (which return 0 slots when closed) instead of switching to read-only snapshot mode.
+  - Explicitly reset `isLiveBanker = false` and set `isReadOnly = true` whenever closing the bank session or opening bank without an active banker NPC, enabling immediate read-only viewing of the logged-in character's bank without needing a `/reload`.
+
+### Spin 0.0.18
+- **Prevent Post-Session Bank Snapshot Overwrites**:
+  - Removed post-close bank scanning from `OnBankClosed()` and `CloseBankSession()`, preventing race conditions where bank container data was sampled after the banker NPC interaction had already concluded.
+
+### Spin 0.0.17
+- **Snapshot Item Icon & Link Self-Healing**:
+  - Implemented automatic on-the-fly healing in `UpdateButton()` for cached bank slots: resolves missing icons and links directly from `slotData.id` using `C_Item.GetItemIconByID` and `ContainerHelper.GetItemInfoSafe`.
+  - Immediately restores item textures and hyperlinks for existing bank snapshots without waiting for a banker re-visit.
+- **Banker Interaction Synchronization**:
+  - Automatically triggers `CharacterCache:ScheduleBankScan()` when opening at a banker and on bank container updates.
+  - Guarantees immediate bank snapshot save in `CloseBankSession()` and `OnBankClosed()`.
+
+### Spin 0.0.16
+- **Empty State & Nil Trapping for Uncached Bank Data**:
+  - Implemented `EmptyStateText` centered in `ContentArea`, cleanly notifying the user (`No Bank Data Cached for [Character]\n\nVisit any Banker NPC once to record your bank inventory.`) when opening bank for a character with no recorded bank visits.
+  - Dynamically sets minimum content height to 160px when `totalSlots == 0`, preventing frame collapse.
+  - Updated window title to display `|cffff6666(No Data Cached)|r` when bank data is missing.
+  - Guarded `GetBankSlotInfo()` and `UpdateBankBar()` against calling live `C_Bank` and `C_Container` APIs during read-only or alt inspection, calculating purchased tabs from cached snapshots and suppressing the `Buy Slot` button.
+  - Guarded item slot cooldowns and deposit button in read-only and alt viewing modes.
+  - Implemented `OneStorageBank:IsShown()` API.
+
+### Spin 0.0.15
+- **Eliminated Item Click Taint on Bank Buttons**:
+  - Removed custom Lua `OnClick` and `OnDragStart` wrappers on bank container buttons in `CreateItemButton`, preserving native untainted Blizzard execution.
+  - Dynamically unregisters mouse clicks and drags via `btn:RegisterForClicks()` and `btn:RegisterForDrag()` when in static read-only mode or viewing cached alts, and restores them for live banker visits.
+
+### Spin 0.0.14
+- **First & Last Name Character Display**:
+  - Dropdown button and character list display full character First and Last names on WoW Forever.
+  - Repositioned Deposit Reagents button to `BOTTOMRIGHT, -280, 8` for clean layout spacing beside the expanded dropdown.
+  - Alt snapshot frame title displays the character's full First and Last name.
+
+### Spin 0.0.13
+- **Cross-Character Bank & Offline Read-Only Inspection**:
+  - Integrated with `OneStorageUtils.CharacterCache` to display bank snapshots across all account characters without switching characters.
+  - Implemented static read-only bank viewing away from town/banker via `/onebank` or `/osbank`, clearly denoted with `(Read-Only Snapshot)` or `[CharacterName] (Snapshot)` in the frame title.
+  - Added bottom-right character dropdown selector (`FrameHelper:CreateCharacterDropdown`) with a "Return to Self" button, positioned opposite the gold/silver/copper currency display.
+  - Protected read-only / alt slots against native pickup and drag operations (`OnClick`, `OnDragStart`, `OnReceiveDrag`) to eliminate taint and protected action errors when viewing cached bank items.
+  - Cached hyperlinks and tooltips displayed seamlessly via `GameTooltip:SetHyperlink` when inspecting offline/alt bank items.
 
 ### Spin 0.0.12
 - **Eliminated `PurchaseBankTab()` Action Blocked Taint**: Fixed Blizzard UI forbidden action error (`Forbidden function call: AddOn 'OneStorageBank' attempted to call 'PurchaseBankTab()'`) when purchasing a bank slot:
@@ -143,7 +189,6 @@ When picking up development on this addon:
 ## 📋 Living Roadmap & Upcoming Backlog (Next Spins)
 
 ### Priority 1: High Priority (Immediate Next Spin)
-- [ ] **Offline Bank Cache**: Cache bank contents on close to enable browsing bank items away from a banker.
 - [ ] **Item Quality Color Glows**: Render rarity border tints on bank slots.
 
 ### Priority 2: Medium Priority (Enhancements)

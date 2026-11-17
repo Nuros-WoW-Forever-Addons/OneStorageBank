@@ -17,6 +17,7 @@ Part of the **OneSuite** family of addons.
   - **Separated Bags Mode**: Visual dividers separating individual bank bags.
   - **Configurable Column Width**: Adjust from 6 to 18 columns (`/osbank cols <number>`).
 - 💰 **Bank Bag Drawer & Slot Purchasing**: Expandable bank bag bar with integrated slot cost calculation and 1-click slot purchase confirmation.
+- 👥 **Cross-Character & Static Offline Bank Inspection**: Inspect the bank contents of any character on your account from anywhere without relogging via a character dropdown and "Return to Self" button.
 - 🔄 **Bank Interaction Hooks**: Automatically opens when visiting any Banker NPC and cleanly closes upon walking away.
 
 ---

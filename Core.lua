@@ -44,6 +44,50 @@ end
 function OneStorageBank:UpdateTitle()
     if not self.frame then return end
     
+    local titleTarget = (self.frame.TitleContainer and self.frame.TitleContainer.TitleText) 
+        or self.frame.TitleText or self.frame.Title
+    if not titleTarget then return end
+    
+    local cache = OneStorageUtils and OneStorageUtils.CharacterCache
+    local targetChar = self.viewingAlt or UnitName("player")
+    local charData = cache and cache:GetCharacter(targetChar)
+    local hex = (cache and charData and cache.GetClassColorHex(charData.class)) or "ffffcc00"
+    local displayName = (charData and charData.fullName) or targetChar
+    
+    local hasBankData = false
+    if charData and charData.bank and charData.bank.tabs then
+        if self.selectedTab == 2 then
+            local regBankID = (ContainerHelper and ContainerHelper.REAGENTBANK_CONTAINER) or -3
+            local regTab = charData.bank.tabs[regBankID]
+            if regTab and regTab.numSlots and regTab.numSlots > 0 then
+                hasBankData = true
+            end
+        else
+            for _, tData in pairs(charData.bank.tabs) do
+                if tData and tData.numSlots and tData.numSlots > 0 then
+                    hasBankData = true
+                    break
+                end
+            end
+        end
+    end
+    
+    if self.viewingAlt then
+        if not hasBankData then
+            titleTarget:SetText(string.format("OneStorage |cff00ccffBank|r - |c%s[%s]|r |cffff6666(No Data Cached)|r", hex, displayName))
+        else
+            titleTarget:SetText(string.format("OneStorage |cff00ccffBank|r - |c%s[%s]|r |cffffcc00(Snapshot)|r", hex, displayName))
+        end
+        return
+    elseif self.isReadOnly then
+        if not hasBankData then
+            titleTarget:SetText(string.format("OneStorage |cff00ccffBank|r - |c%s[%s]|r |cffff6666(No Data Cached)|r", hex, displayName))
+        else
+            titleTarget:SetText("OneStorage |cff00ccffBank|r  |cffffcc00(Read-Only Snapshot)|r")
+        end
+        return
+    end
+    
     local free, total = 0, 0
     if self.selectedTab == 1 then
         local bagList = {}
@@ -67,12 +111,7 @@ function OneStorageBank:UpdateTitle()
     
     local tabTitle = (self.selectedTab == 1) and "Bank" or "Reagents"
     local titleText = string.format("|cffffffff%s|r  |cff888888(%d/%d Free)|r", tabTitle, free, total)
-    
-    local titleTarget = (self.frame.TitleContainer and self.frame.TitleContainer.TitleText) 
-        or self.frame.TitleText or self.frame.Title
-    if titleTarget then
-        titleTarget:SetText(titleText)
-    end
+    titleTarget:SetText(titleText)
 end
 
 -------------------------------------------------------------------------------
@@ -104,6 +143,18 @@ local function OnItemEnter(self)
     if self.BattlepayItemTexture then self.BattlepayItemTexture:Hide() end
     if self.flashAnim and self.flashAnim:IsPlaying() then self.flashAnim:Stop() end
     if self.newitemglowAnim and self.newitemglowAnim:IsPlaying() then self.newitemglowAnim:Stop() end
+
+    if self.isAltSlot or OneStorageBank.isReadOnly or OneStorageBank.viewingAlt then
+        OneStorageBank:HighlightBankBarButton(bag)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        if self.altLink then
+            GameTooltip:SetHyperlink(self.altLink)
+        else
+            GameTooltip:SetText("Empty Bank Slot", 1, 1, 1)
+        end
+        GameTooltip:Show()
+        return
+    end
 
     OneStorageBank:HighlightBankBarButton(bag)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -259,6 +310,9 @@ function OneStorageBank:CreateItemButton(index)
     btn:SetScript("OnEnter", OnItemEnter)
     btn:SetScript("OnLeave", OnItemLeave)
     
+    -- Preserve native template OnClick and OnDragStart handlers
+    -- to ensure zero taint when targeting spells or moving items.
+    
     return btn
 end
 
@@ -334,7 +388,97 @@ function OneStorageBank:RefreshLayout()
     local slotList = {}
     local contentH = 0
     
-    if self.selectedTab == 1 then
+    if (self.viewingAlt or self.isReadOnly) then
+        local cache = OneStorageUtils and OneStorageUtils.CharacterCache
+        local targetChar = self.viewingAlt or UnitName("player")
+        local charData = cache and cache:GetCharacter(targetChar)
+        local bank = (charData and charData.bank) or {}
+        local tabs = bank.tabs or {}
+        local mainBankID = (ContainerHelper and ContainerHelper.BANK_CONTAINER) or 6
+        local bankBagIDs = self:GetBankBagIDs()
+        
+        if self.selectedTab == 1 then
+            local showMain = (OneStorageBankDB and OneStorageBankDB.showMainBank ~= nil) and OneStorageBankDB.showMainBank or true
+            if separateBags then
+                local activeBags = {}
+                if showMain and tabs[mainBankID] and tabs[mainBankID].numSlots and tabs[mainBankID].numSlots > 0 then
+                    table.insert(activeBags, { bagID = mainBankID, numSlots = tabs[mainBankID].numSlots })
+                end
+                for _, bID in ipairs(bankBagIDs) do
+                    if tabs[bID] and tabs[bID].numSlots and tabs[bID].numSlots > 0 then
+                        table.insert(activeBags, { bagID = bID, numSlots = tabs[bID].numSlots })
+                    end
+                end
+                
+                local currentRow = 0
+                local numActiveBags = #activeBags
+                for bagIdx, bagData in ipairs(activeBags) do
+                    local bID = bagData.bagID
+                    local numSlots = bagData.numSlots
+                    local bagRows = math.ceil(numSlots / cols)
+                    
+                    for slotID = 1, numSlots do
+                        local col = (slotID - 1) % cols
+                        local localRow = math.floor((slotID - 1) / cols)
+                        local row = currentRow + localRow
+                        local x = col * (btnSize + spacing)
+                        local y = -(row * (btnSize + spacing) + (bagIdx - 1) * bagGap)
+                        
+                        table.insert(slotList, {
+                            bagID  = bID,
+                            slotID = slotID,
+                            x      = x,
+                            y      = y,
+                        })
+                    end
+                    
+                    currentRow = currentRow + bagRows
+                end
+                
+                local totalRows = math.max(1, currentRow)
+                contentH = (totalRows * btnSize) + ((totalRows - 1) * spacing) + (math.max(0, numActiveBags - 1) * bagGap)
+            else
+                if showMain and tabs[mainBankID] and tabs[mainBankID].numSlots and tabs[mainBankID].numSlots > 0 then
+                    for s = 1, tabs[mainBankID].numSlots do
+                        table.insert(slotList, { bagID = mainBankID, slotID = s })
+                    end
+                end
+                for _, bID in ipairs(bankBagIDs) do
+                    if tabs[bID] and tabs[bID].numSlots and tabs[bID].numSlots > 0 then
+                        for s = 1, tabs[bID].numSlots do
+                            table.insert(slotList, { bagID = bID, slotID = s })
+                        end
+                    end
+                end
+                
+                local totalSlots = #slotList
+                local rows = math.max(1, math.ceil(totalSlots / cols))
+                contentH = (rows * btnSize) + ((rows - 1) * spacing)
+                for i, slotData in ipairs(slotList) do
+                    local col = (i - 1) % cols
+                    local row = math.floor((i - 1) / cols)
+                    slotData.x = col * (btnSize + spacing)
+                    slotData.y = -row * (btnSize + spacing)
+                end
+            end
+        else
+            -- Reagents tab
+            local regBankID = ContainerHelper.REAGENTBANK_CONTAINER
+            local numSlots = (tabs[regBankID] and tabs[regBankID].numSlots) or 0
+            for s = 1, numSlots do
+                table.insert(slotList, { bagID = regBankID, slotID = s })
+            end
+            local totalSlots = #slotList
+            local rows = math.max(1, math.ceil(totalSlots / cols))
+            contentH = (rows * btnSize) + ((rows - 1) * spacing)
+            for i, slotData in ipairs(slotList) do
+                local col = (i - 1) % cols
+                local row = math.floor((i - 1) / cols)
+                slotData.x = col * (btnSize + spacing)
+                slotData.y = -row * (btnSize + spacing)
+            end
+        end
+    elseif self.selectedTab == 1 then
         local showMain = (OneStorageBankDB and OneStorageBankDB.showMainBank ~= nil) and OneStorageBankDB.showMainBank or true
         if separateBags then
             local activeBags = {}
@@ -429,6 +573,35 @@ function OneStorageBank:RefreshLayout()
     local frameW = math.max(480, contentW + 32)
     local headerH = self.isBagBarShown and 90 or 58
     local footerH = 44
+    
+    if totalSlots == 0 then
+        contentH = 160
+        if self.frame.EmptyStateText then
+            local cache = OneStorageUtils and OneStorageUtils.CharacterCache
+            local targetChar = self.viewingAlt or UnitName("player")
+            local charData = cache and cache:GetCharacter(targetChar)
+            local hex = (cache and charData and cache.GetClassColorHex(charData.class)) or "ffffcc00"
+            local displayName = (charData and charData.fullName) or targetChar
+            
+            if self.selectedTab == 2 then
+                self.frame.EmptyStateText:SetText(string.format(
+                    "|cffffcc00No Reagent Bank Data Cached for|r |c%s[%s]|r\n\n|cffaaaaaaVisit any Banker NPC once to record your reagent bank inventory.|r",
+                    hex, displayName
+                ))
+            else
+                self.frame.EmptyStateText:SetText(string.format(
+                    "|cffffcc00No Bank Data Cached for|r |c%s[%s]|r\n\n|cffaaaaaaVisit any Banker NPC once to record your bank inventory.|r",
+                    hex, displayName
+                ))
+            end
+            self.frame.EmptyStateText:Show()
+        end
+    else
+        if self.frame.EmptyStateText then
+            self.frame.EmptyStateText:Hide()
+        end
+    end
+    
     local frameH = contentH + headerH + footerH + 16
     
     self.frame:SetSize(frameW, frameH)
@@ -506,7 +679,55 @@ function OneStorageBank:UpdateButton(btn)
     if btn.flashAnim and btn.flashAnim:IsPlaying() then btn.flashAnim:Stop() end
     if btn.newitemglowAnim and btn.newitemglowAnim:IsPlaying() then btn.newitemglowAnim:Stop() end
     
-    local info = ContainerHelper:GetItemInfo(bagID, slotID)
+    local info
+    if self.viewingAlt or self.isReadOnly then
+        local cache = OneStorageUtils and OneStorageUtils.CharacterCache
+        local targetChar = self.viewingAlt or UnitName("player")
+        local charData = cache and cache:GetCharacter(targetChar)
+        local tabData = charData and charData.bank and charData.bank.tabs and charData.bank.tabs[bagID]
+        local slotData = tabData and tabData.slots and tabData.slots[slotID]
+        if slotData then
+            local icon = slotData.icon
+            if not icon and slotData.id and C_Item and C_Item.GetItemIconByID then
+                icon = C_Item.GetItemIconByID(slotData.id)
+                slotData.icon = icon
+            end
+            local link = slotData.link
+            if not link and slotData.id and ContainerHelper and ContainerHelper.GetItemInfoSafe then
+                local _, itemLink = ContainerHelper.GetItemInfoSafe(slotData.id)
+                if itemLink then
+                    link = itemLink
+                    slotData.link = link
+                end
+            end
+            info = {
+                icon = icon,
+                count = slotData.count or 1,
+                quality = slotData.quality or 1,
+                hyperlink = link,
+                itemID = slotData.id,
+                readable = false,
+                locked = false,
+            }
+        end
+        btn.isAltSlot = true
+        btn.altLink = (info and info.hyperlink) or (slotData and slotData.link)
+        -- Disable clicks and drags on cached alt / read-only slots
+        btn:RegisterForClicks()
+        btn:RegisterForDrag()
+    else
+        btn.isAltSlot = false
+        btn.altLink = nil
+        -- If in static read-only bank mode, disable clicks/drags; otherwise restore native clicks/drags
+        if self.isReadOnly or self.viewingAlt then
+            btn:RegisterForClicks()
+            btn:RegisterForDrag()
+        else
+            btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            btn:RegisterForDrag("LeftButton")
+        end
+        info = ContainerHelper:GetItemInfo(bagID, slotID)
+    end
     
     if info and info.icon then
         btn.hasItem = true
@@ -539,10 +760,14 @@ function OneStorageBank:UpdateButton(btn)
         end
         
         -- Cooldown
-        local start, duration, enable = ContainerHelper:GetItemCooldown(bagID, slotID)
-        if start and duration and duration > 0 and enable == 1 then
-            btn.Cooldown:SetCooldown(start, duration)
-            btn.Cooldown:Show()
+        if not (self.viewingAlt or self.isReadOnly) then
+            local start, duration, enable = ContainerHelper:GetItemCooldown(bagID, slotID)
+            if start and duration and duration > 0 and enable == 1 then
+                btn.Cooldown:SetCooldown(start, duration)
+                btn.Cooldown:Show()
+            else
+                btn.Cooldown:Hide()
+            end
         else
             btn.Cooldown:Hide()
         end
@@ -582,7 +807,14 @@ function OneStorageBank:UpdateButton(btn)
             if btn.BagHighlight then btn.BagHighlight:Hide() end
             if btn.BagHighlightBorder then btn.BagHighlightBorder:Hide() end
             btn:UnlockHighlight()
-            local matches = ContainerHelper:MatchesSearch(bagID, slotID, self.currentSearch)
+            local matches = false
+            if self.viewingAlt or self.isReadOnly then
+                if info and info.hyperlink then
+                    matches = info.hyperlink:lower():find(self.currentSearch:lower(), 1, true) ~= nil
+                end
+            else
+                matches = ContainerHelper:MatchesSearch(bagID, slotID, self.currentSearch)
+            end
             if matches then
                 btn.SearchOverlay:Hide()
                 btn:SetAlpha(1.0)
@@ -672,24 +904,46 @@ function OneStorageBank:GetBankBagIDs()
 end
 
 function OneStorageBank:GetBankSlotInfo()
+    local maxBags = 6
+    local maxTabs = 7
+    
+    if self.viewingAlt or self.isReadOnly then
+        local cache = OneStorageUtils and OneStorageUtils.CharacterCache
+        local targetChar = self.viewingAlt or UnitName("player")
+        local charData = cache and cache:GetCharacter(targetChar)
+        local cachedBagCount = 0
+        if charData and charData.bank and charData.bank.tabs then
+            local bankBagIDs = self:GetBankBagIDs()
+            for _, bagID in ipairs(bankBagIDs) do
+                if charData.bank.tabs[bagID] and charData.bank.tabs[bagID].numSlots and charData.bank.tabs[bagID].numSlots > 0 then
+                    cachedBagCount = cachedBagCount + 1
+                end
+            end
+        end
+        local full = (cachedBagCount >= maxBags)
+        return cachedBagCount, full, nil, cachedBagCount + 1, maxBags
+    end
+
     local bankType = (Enum and Enum.BankType and Enum.BankType.Character) or 0
     local numPurchasedTabs = 1
     if C_Bank and C_Bank.FetchNumPurchasedBankTabs then
-        numPurchasedTabs = C_Bank.FetchNumPurchasedBankTabs(bankType) or 1
+        local ok, val = pcall(C_Bank.FetchNumPurchasedBankTabs, bankType)
+        if ok and val then numPurchasedTabs = val end
     end
     
-    local maxTabs = 7
     if C_Bank and C_Bank.FetchMaxNumBankTabs then
-        maxTabs = C_Bank.FetchMaxNumBankTabs(bankType) or 7
+        local ok, val = pcall(C_Bank.FetchMaxNumBankTabs, bankType)
+        if ok and val then maxTabs = val end
     end
     
     local tabData = nil
     if C_Bank and C_Bank.FetchNextPurchasableBankTabData then
-        tabData = C_Bank.FetchNextPurchasableBankTabData(bankType)
+        local ok, val = pcall(C_Bank.FetchNextPurchasableBankTabData, bankType)
+        if ok and val then tabData = val end
     end
     
     local numPurchasedBags = math.max(0, numPurchasedTabs - 1)
-    local maxBags = math.max(1, maxTabs - 1)
+    maxBags = math.max(1, maxTabs - 1)
     local full = (numPurchasedBags >= maxBags)
     local nextCost = tabData and tabData.tabCost
     
@@ -708,21 +962,43 @@ end
 function OneStorageBank:UpdateBankBar()
     if not self.bankBar or not self.bankBarButtons then return end
     
+    local isAltOrReadOnly = (self.viewingAlt or self.isReadOnly)
     local numPurchased, full, nextCost = self:GetBankSlotInfo()
     local bankEquipmentContainer = (Enum and Enum.BagIndex and Enum.BagIndex.Characterbanktab) or -2
+    
+    local cache = OneStorageUtils and OneStorageUtils.CharacterCache
+    local targetChar = self.viewingAlt or UnitName("player")
+    local charData = cache and cache:GetCharacter(targetChar)
+    local bankBagIDs = self:GetBankBagIDs()
     
     for idx, btn in ipairs(self.bankBarButtons) do
         local isPurchased = (idx <= numPurchased)
         btn.isPurchased = isPurchased
         
         if isPurchased then
-            local info = C_Container and C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bankEquipmentContainer, btn.bagSlotID)
-            if info and info.iconFileID then
-                btn.icon:SetTexture(info.iconFileID)
+            local iconTexture = nil
+            local iconQuality = nil
+            
+            if isAltOrReadOnly then
+                local actualBagID = bankBagIDs[idx]
+                if charData and charData.bank and charData.bank.tabs and actualBagID and charData.bank.tabs[actualBagID] then
+                    iconTexture = charData.bank.tabs[actualBagID].icon
+                    iconQuality = charData.bank.tabs[actualBagID].quality
+                end
+            else
+                local info = C_Container and C_Container.GetContainerItemInfo and C_Container.GetContainerItemInfo(bankEquipmentContainer, btn.bagSlotID)
+                if info then
+                    iconTexture = info.iconFileID
+                    iconQuality = info.quality
+                end
+            end
+            
+            if iconTexture then
+                btn.icon:SetTexture(iconTexture)
                 btn.icon:SetVertexColor(1, 1, 1, 1)
                 
-                if info.quality and info.quality > 1 and btn.QualityBorder then
-                    local r, g, b = ContainerHelper:GetQualityColor(info.quality)
+                if iconQuality and iconQuality > 1 and btn.QualityBorder then
+                    local r, g, b = ContainerHelper:GetQualityColor(iconQuality)
                     btn.QualityBorder:SetVertexColor(r, g, b, 1)
                     btn.QualityBorder:Show()
                 elseif btn.QualityBorder then
@@ -741,7 +1017,7 @@ function OneStorageBank:UpdateBankBar()
     end
     
     if self.bankBar.BuyButton then
-        if not self.isBagBarShown or not (self.frame and self.frame:IsShown()) or (self.selectedTab ~= 1) then
+        if not self.isBagBarShown or not (self.frame and self.frame:IsShown()) or (self.selectedTab ~= 1) or isAltOrReadOnly then
             self.bankBar.BuyButton:Hide()
         else
             if full then
@@ -933,7 +1209,7 @@ function OneStorageBank:SelectTab(tabIndex)
     if self.tab2 then self.tab2:SetSelected(tabIndex == 2) end
     
     if self.depositBtn then
-        if tabIndex == 2 then
+        if tabIndex == 2 and not (self.isReadOnly or self.viewingAlt) then
             self.depositBtn:Show()
         else
             self.depositBtn:Hide()
@@ -1130,6 +1406,16 @@ function OneStorageBank:CreateFrame()
     contentArea:SetFrameLevel(frame:GetFrameLevel() + 2)
     frame.ContentArea = contentArea
     
+    -- Empty State Message (Displayed when no bank data is cached for alt/player)
+    local emptyText = contentArea:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    emptyText:SetPoint("CENTER", contentArea, "CENTER", 0, 0)
+    emptyText:SetJustifyH("CENTER")
+    emptyText:SetJustifyV("MIDDLE")
+    emptyText:SetWordWrap(true)
+    emptyText:SetWidth(420)
+    emptyText:Hide()
+    frame.EmptyStateText = emptyText
+    
     -- Footer Silver Tabs
     local tab1 = FrameHelper:CreateSilverTab(frame, "OneStorageBankTab1", 1, "Bank")
     tab1:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 16, 8)
@@ -1144,7 +1430,7 @@ function OneStorageBank:CreateFrame()
     -- Deposit All Reagents Action Button
     local depositBtn = FrameHelper:CreateSilverButton(frame, "OneStorageBankDepositReagentsButton", "Deposit Reagents")
     depositBtn:SetSize(130, 24)
-    depositBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -16, 12)
+    depositBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -280, 8)
     depositBtn:SetScript("OnClick", function()
         if C_Container and C_Container.DepositReagentBank then
             pcall(C_Container.DepositReagentBank)
@@ -1154,6 +1440,22 @@ function OneStorageBank:CreateFrame()
     end)
     depositBtn:Hide()
     self.depositBtn = depositBtn
+    
+    -- Bottom-Right Character Selector & Return to Self
+    if FrameHelper and FrameHelper.CreateCharacterDropdown then
+        frame.CharSelect = FrameHelper:CreateCharacterDropdown(frame, "OneStorageBank", function(charName, isCurrent)
+            if isCurrent then
+                OneStorageBank.viewingAlt = nil
+                OneStorageBank.isReadOnly = not OneStorageBank.isLiveBanker
+            else
+                OneStorageBank.viewingAlt = charName
+                OneStorageBank.isReadOnly = true
+            end
+            OneStorageBank:RefreshLayout()
+            OneStorageBank:UpdateTitle()
+            OneStorageBank:UpdateBankBar()
+        end)
+    end
     
     -- Close Button (exits bank session completely)
     if frame.CloseButton then
@@ -1217,6 +1519,8 @@ end
 
 local isClosingBankSession = false
 function OneStorageBank:CloseBankSession()
+    self.isLiveBanker = false
+    self.isReadOnly = true
     if isClosingBankSession then return end
     isClosingBankSession = true
     
@@ -1250,7 +1554,18 @@ function OneStorageBank:CloseBankSession()
     isClosingBankSession = false
 end
 
-function OneStorageBank:Show()
+function OneStorageBank:Show(isLive)
+    if isLive then
+        self.isLiveBanker = true
+        self.isReadOnly = false
+        local cache = OneStorageUtils and OneStorageUtils.CharacterCache
+        if cache and cache.ScheduleBankScan then
+            cache:ScheduleBankScan()
+        end
+    else
+        self.isLiveBanker = false
+        self.isReadOnly = true
+    end
     local f = self:CreateFrame()
     self.isBagBarShown = self:GetOption("showBagBar") or false
     if self.isBagBarShown and self.selectedTab == 1 then
@@ -1266,6 +1581,7 @@ function OneStorageBank:Show()
     f:Show()
     self:RefreshLayout()
     self:UpdateBankBar()
+    self:UpdateTitle()
 end
 
 function OneStorageBank:Hide()
@@ -1275,7 +1591,16 @@ function OneStorageBank:Hide()
     if self.frame and self.frame:IsShown() then
         self.frame:Hide()
     end
-    self:CloseBankSession()
+    if self.isLiveBanker then
+        self:CloseBankSession()
+    end
+    self.isLiveBanker = false
+    self.isReadOnly = true
+    self.viewingAlt = nil
+end
+
+function OneStorageBank:IsShown()
+    return (self.frame and self.frame:IsShown()) and true or false
 end
 
 function OneStorageBank:Toggle()

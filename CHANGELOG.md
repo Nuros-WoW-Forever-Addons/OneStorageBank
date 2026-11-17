@@ -5,6 +5,74 @@ All notable changes to **OneStorageBank** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.19] - 2026-11-15
+### Fixed
+- **Persistent Live Banker State Clearing**:
+  - Fixed an issue where `isLiveBanker` remained `true` in memory after leaving the banker NPC because `CloseBankSession()`, `Hide()`, and `OnBankClosed()` never cleared the flag.
+  - When subsequently opening the bank away from town, `Show()` assumed the player was still live at a banker and attempted live container queries (which return 0 slots when closed) instead of switching to read-only snapshot mode.
+  - Explicitly reset `isLiveBanker = false` and set `isReadOnly = true` whenever closing the bank session or opening bank without an active banker NPC, enabling immediate read-only viewing of the logged-in character's bank without needing a `/reload`.
+
+---
+
+## [0.0.18] - 2026-11-15
+### Fixed
+- **Prevent Post-Session Bank Snapshot Overwrites**:
+  - Removed post-close bank scanning from `OnBankClosed()` and `CloseBankSession()`, preventing race conditions where bank container data was sampled after the banker NPC interaction had already concluded.
+
+---
+
+## [0.0.17] - 2026-11-15
+### Fixed
+- **Snapshot Item Icon & Link Self-Healing**:
+  - Implemented automatic on-the-fly healing in `UpdateButton()` for cached bank slots: resolves missing icons and links directly from `slotData.id` using `C_Item.GetItemIconByID` and `ContainerHelper.GetItemInfoSafe`.
+  - Immediately restores item textures and hyperlinks for existing bank snapshots without waiting for a banker re-visit.
+- **Banker Interaction Synchronization**:
+  - Automatically triggers `CharacterCache:ScheduleBankScan()` when opening at a banker and on bank container updates.
+  - Guarantees immediate bank snapshot save in `CloseBankSession()` and `OnBankClosed()`.
+
+---
+
+## [0.0.16] - 2026-11-15
+### Added
+- **Empty State & Nil Trapping for Uncached Bank Data**:
+  - Implemented `EmptyStateText` centered in `ContentArea`, cleanly notifying the user (`No Bank Data Cached for [Character]\n\nVisit any Banker NPC once to record your bank inventory.`) when opening bank for a character with no recorded bank visits.
+  - Dynamically sets minimum content height to 160px when `totalSlots == 0`, preventing frame collapse.
+  - Updated window title to display `|cffff6666(No Data Cached)|r` when bank data is missing.
+  - Guarded `GetBankSlotInfo()` and `UpdateBankBar()` against calling live `C_Bank` and `C_Container` APIs during read-only or alt inspection, calculating purchased tabs from cached snapshots and suppressing the `Buy Slot` button.
+  - Guarded item slot cooldowns and deposit button in read-only and alt viewing modes.
+  - Implemented `OneStorageBank:IsShown()` API.
+
+---
+
+## [0.0.15] - 2026-11-15
+### Fixed
+- **Eliminated Item Click Taint on Bank Buttons**:
+  - Removed custom Lua `OnClick` and `OnDragStart` wrappers on bank container buttons in `CreateItemButton`, preserving native untainted Blizzard execution.
+  - Dynamically unregisters mouse clicks and drags via `btn:RegisterForClicks()` and `btn:RegisterForDrag()` when in static read-only mode or viewing cached alts, and restores them for live banker visits.
+
+---
+
+## [0.0.14] - 2026-11-15
+### Enhanced
+- **First & Last Name Display**:
+  - Character selector dropdown button and selection popup list now display full character First and Last names.
+  - Adjusted Deposit Reagents button offset to ensure comfortable spacing alongside the full-name character dropdown.
+  - Bank window title displays the character's full First and Last name when inspecting an alt's bank snapshot.
+
+---
+
+## [0.0.13] - 2026-11-15
+### Added
+- **Static Read-Only Bank Inspection**:
+  - Enabled viewing character bank contents from anywhere in the world without visiting a banker NPC (`/osbank` or `/onebank`).
+  - Displays cached bank slots, items, and stack counts with hover tooltips in a secure read-only mode (clicks and drags disabled to prevent action-blocked errors).
+- **Cross-Character Bank Viewer**:
+  - Added bottom-right character dropdown opposite tabs, enabling players to inspect any character's bank snapshot without logging in to alts.
+  - Added "Return to Self" button on the left end of the dropdown to instantly return to current character bank view.
+  - Search filtering fully functions on cached bank items across characters.
+
+---
+
 ## [0.0.12] - 2026-11-14
 ### Fixed
 - **Eliminated `PurchaseBankTab()` Action Blocked Taint**: Fixed Blizzard UI forbidden action error (`Forbidden function call: AddOn 'OneStorageBank' attempted to call 'PurchaseBankTab()'`) when purchasing a bank slot:
