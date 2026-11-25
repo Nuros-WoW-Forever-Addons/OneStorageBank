@@ -7,7 +7,7 @@
 ## 🎯 Overview & Scope
 
 - **Addon Name**: OneStorageBank
-- **Current Version**: 0.0.15
+- **Current Version**: 0.0.20
 - **Suite**: Part of the **OneSuite** family (OneStorage Inventory Suite)
 - **GitHub Repository**:
   - Exists: TRUE
@@ -61,6 +61,10 @@ When picking up development on this addon:
 ---
 
 ## ✅ Recent Completed Work (Latest Spins)
+
+### Spin 0.0.20
+- **Reset Character Selection on Close**:
+  - Updated `OnBankHide()` to clear `viewingAlt` and reset `CharSelect` to `UnitName("player")` whenever the bank window is closed, so reopening always defaults back to the logged-in character.
 
 ### Spin 0.0.19
 - **Persistent Live Banker State Clearing**:

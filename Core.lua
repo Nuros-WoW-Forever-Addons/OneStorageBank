@@ -1491,6 +1491,12 @@ function OneStorageBank:CreateFrame()
             OneStorageBank.optionsFrame:Hide()
         end
         OneStorageBank:CloseBankSession()
+        if OneStorageBank.viewingAlt then
+            OneStorageBank.viewingAlt = nil
+            if OneStorageBank.frame and OneStorageBank.frame.CharSelect and OneStorageBank.frame.CharSelect.SetSelected then
+                OneStorageBank.frame.CharSelect:SetSelected(UnitName("player"))
+            end
+        end
     end
 
     if frame.HookScript then

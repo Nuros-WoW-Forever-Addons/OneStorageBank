@@ -5,6 +5,13 @@ All notable changes to **OneStorageBank** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.20] - 2026-11-22
+### Fixed
+- **Reset Character Selection on Close**:
+  - Updated `OnBankHide()` to clear `viewingAlt` and reset the `CharSelect` dropdown to `UnitName("player")` whenever the bank window is closed (via `X`, `Escape`, keybind toggle, or leaving a banker), so reopening the bank always defaults back to the logged-in character.
+
+---
+
 ## [0.0.19] - 2026-11-15
 ### Fixed
 - **Persistent Live Banker State Clearing**:
